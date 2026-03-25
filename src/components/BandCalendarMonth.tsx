@@ -26,6 +26,12 @@ function formatYMDLocal(d: Date) {
   return `${y}-${m}-${day}`;
 }
 
+function parseYMDLocal(ymd: string) {
+  const [y, m, d] = ymd.split("-").map((x) => Number(x));
+  if (!y || !m || !d) return null;
+  return new Date(y, m - 1, d);
+}
+
 function formatWeekdayShort(d: Date) {
   return new Intl.DateTimeFormat(undefined, { weekday: "short" }).format(d);
 }
@@ -43,8 +49,21 @@ function addMonths(d: Date, delta: number) {
 export default function BandCalendarMonth() {
   const [cursorMonth, setCursorMonth] = useState(() => new Date());
   const [services, setServices] = useState<Service[]>([]);
+  const [rehearsalDates, setRehearsalDates] = useState<Set<string>>(() => new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const todayKey = useMemo(() => formatYMDLocal(new Date()), []);
+  const todayMonthStart = useMemo(() => {
+    const t = new Date();
+    return new Date(t.getFullYear(), t.getMonth(), 1);
+  }, []);
+  const maxMonthStart = useMemo(() => addMonths(todayMonthStart, 2), [todayMonthStart]);
+  const cursorMonthStart = useMemo(
+    () => new Date(cursorMonth.getFullYear(), cursorMonth.getMonth(), 1),
+    [cursorMonth]
+  );
+  const canGoNext = cursorMonthStart < maxMonthStart;
 
   useEffect(() => {
     const year = cursorMonth.getFullYear();
@@ -58,24 +77,33 @@ export default function BandCalendarMonth() {
 
     let cancelled = false;
 
-    fetch(`/api/services?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`)
-      .then(async (res) => {
-        if (!res.ok) {
-          const body = await res.json().catch(() => null);
-          const msg = body?.error ? String(body.error) : `Request failed (${res.status})`;
-          throw new Error(msg);
-        }
-        return (await res.json()) as Service[];
-      })
-      .then((data) => {
+    const fetchJSON = async <T,>(url: string): Promise<T> => {
+      const res = await fetch(url);
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        const msg = body?.error ? String(body.error) : `Request failed (${res.status})`;
+        throw new Error(msg);
+      }
+      return (await res.json()) as T;
+    };
+
+    Promise.all([
+      fetchJSON<Service[]>(
+        `/api/services?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
+      ),
+      fetchJSON<string[]>(`/api/rehearsals?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
+    ])
+      .then(([serviceData, rehearsalData]) => {
         if (cancelled) return;
-        setServices(data);
+        setServices(serviceData);
+        setRehearsalDates(new Set(rehearsalData));
         setError(null);
       })
       .catch((e) => {
         if (cancelled) return;
         setServices([]);
-        setError(e instanceof Error ? e.message : "Failed to load services");
+        setRehearsalDates(new Set());
+        setError(e instanceof Error ? e.message : "Failed to load calendar data");
       })
       .finally(() => {
         if (cancelled) return;
@@ -116,6 +144,18 @@ export default function BandCalendarMonth() {
     return cells;
   }, [cursorMonth]);
 
+  const eventDateKeys = useMemo(() => {
+    const keys: string[] = [];
+    for (const cell of grid) {
+      if (!cell.inMonth) continue;
+      if (serviceByDate.has(cell.key) || rehearsalDates.has(cell.key)) {
+        keys.push(cell.key);
+      }
+    }
+    // YYYY-MM-DD string sort is chronological.
+    return keys.sort();
+  }, [grid, serviceByDate, rehearsalDates]);
+
   return (
     <section className="w-full">
       <div className="flex items-center justify-between gap-3 mb-4">
@@ -128,86 +168,188 @@ export default function BandCalendarMonth() {
               setLoading(true);
               setCursorMonth((d) => addMonths(d, -1));
             }}
-            className="px-3 py-1 rounded border border-zinc-300 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900"
+            className="px-2 sm:px-3 py-1 rounded border border-zinc-300 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900"
           >
             Prev
           </button>
           <button
             type="button"
+            disabled={!canGoNext}
             onClick={() => {
+              if (!canGoNext) return;
               setError(null);
               setLoading(true);
               setCursorMonth((d) => addMonths(d, 1));
             }}
-            className="px-3 py-1 rounded border border-zinc-300 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900"
+            className={[
+              "px-2 sm:px-3 py-1 rounded border border-zinc-300 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900",
+              !canGoNext ? "opacity-50 cursor-not-allowed hover:bg-transparent" : "",
+            ].join(" ")}
           >
             Next
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-7 gap-2 mb-2 text-sm text-zinc-600 dark:text-zinc-300">
-        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
-          <div key={d} className="font-medium text-center">
-            {d}
-          </div>
-        ))}
+      <div className="hidden sm:block">
+        <div className="grid grid-cols-7 gap-1 sm:gap-2 mb-2 text-xs sm:text-sm text-zinc-600 dark:text-zinc-300">
+          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
+            <div key={d} className="font-medium text-center">
+              {d}
+            </div>
+          ))}
+        </div>
       </div>
 
       {loading ? (
         <div className="text-sm text-zinc-600 dark:text-zinc-300">Loading services...</div>
       ) : error ? (
         <div className="text-sm text-red-600">{error}</div>
-      ) : services.length === 0 ? (
-        <div className="text-sm text-zinc-600 dark:text-zinc-300">No services found for this month.</div>
+      ) : eventDateKeys.length === 0 ? (
+        <div className="text-sm text-zinc-600 dark:text-zinc-300">No services or rehearsals found for this month.</div>
       ) : null}
 
-      <div className="grid grid-cols-7 gap-2">
-        {grid.map(({ date, inMonth, key }) => {
-          const svc = serviceByDate.get(key);
+      {/* Desktop grid (hidden on mobile) */}
+      <div className="hidden sm:block">
+        <div className="grid grid-cols-7 gap-1 sm:gap-2">
+          {grid.map(({ date, inMonth, key }) => {
+            const svc = serviceByDate.get(key);
+            const isRehearsal = rehearsalDates.has(key);
+            const isPast = key < todayKey;
 
-          return (
-            <div
-              key={key}
-              className={[
-                "min-h-28 rounded-md border p-2",
-                inMonth
-                  ? "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-black/20"
-                  : "border-transparent bg-transparent opacity-40",
-              ].join(" ")}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="text-sm font-semibold">{date.getDate()}</div>
-                {svc ? (
-                  <div className="text-[10px] px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200">
-                    {formatWeekdayShort(date)}
+            return (
+              <div
+                key={key}
+                className={[
+                  "min-h-28 rounded-md border p-2 relative overflow-hidden",
+                  inMonth
+                    ? isPast
+                      ? "border-zinc-200 dark:border-zinc-800 bg-zinc-100/50 dark:bg-black/30 opacity-70"
+                      : "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-black/20"
+                    : "border-transparent bg-transparent opacity-40",
+                ].join(" ")}
+              >
+                {isRehearsal ? (
+                  svc ? (
+                    <div className="absolute bottom-0 right-0 p-1 pointer-events-none z-10">
+                      <div className="text-[10px] font-bold whitespace-nowrap border border-orange-500 bg-orange-500 text-white rounded-tl-sm px-2 py-0.5">
+                        R
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="absolute bottom-0 left-0 right-0 p-1 pointer-events-none z-10">
+                      <div className="w-full text-center text-[10px] font-semibold whitespace-nowrap border border-orange-500 bg-orange-500 text-white rounded-sm py-1">
+                        rehearsal
+                      </div>
+                    </div>
+                  )
+                ) : null}
+
+                <div className="flex items-start justify-between gap-2">
+                  <div className="text-sm font-semibold">{date.getDate()}</div>
+                  {svc ? (
+                    <div className="text-[10px] px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200">
+                      {formatWeekdayShort(date)}
+                    </div>
+                  ) : null}
+                </div>
+
+                {svc && inMonth ? (
+                  <div className="mt-2">
+                    <div className="text-xs font-semibold truncate">{svc.title}</div>
+                    <div className="mt-2 space-y-1">
+                      {ROLE_ORDER.map((role) => {
+                        const assignment = svc.assignments.find((a) => a.role === role);
+                        const name = assignment?.musicianName ?? null;
+
+                        return (
+                          <div key={role} className="flex items-baseline gap-2">
+                            <span className="text-[11px] font-medium whitespace-nowrap">
+                              {role} :
+                            </span>
+                            <span className="text-[11px] text-zinc-700 dark:text-zinc-200 truncate">
+                              {name ?? "—"}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 ) : null}
               </div>
+            );
+          })}
+        </div>
+      </div>
 
-              {svc && inMonth ? (
-                <div className="mt-2">
-                  <div className="text-xs font-semibold truncate">{svc.title}</div>
-                  <div className="mt-2 space-y-1">
-                    {ROLE_ORDER.map((role) => {
-                      const assignment = svc.assignments.find((a) => a.role === role);
-                      const name = assignment?.musicianName ?? null;
+      {/* Mobile event list (hidden on desktop) */}
+      <div className="sm:hidden">
+        <div className="overflow-y-auto max-h-[85vh] pr-1">
+          <div className="grid grid-cols-2 gap-2 pb-1">
+            {eventDateKeys.map((key) => {
+              const svc = serviceByDate.get(key);
+              const date = parseYMDLocal(key);
+              if (!date) return null;
 
-                      return (
-                        <div key={role} className="flex items-baseline gap-2">
-                          <span className="text-[11px] font-medium whitespace-nowrap">{role} :</span>
-                          <span className="text-[11px] text-zinc-700 dark:text-zinc-200 truncate">
-                            {name ?? "—"}
-                          </span>
-                        </div>
-                      );
-                    })}
+              const isRehearsal = rehearsalDates.has(key);
+              const isOverlap = Boolean(svc) && isRehearsal;
+
+              return (
+                <div
+                  key={key}
+                  className={[
+                    "rounded-md border p-2 relative overflow-hidden",
+                    "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-black/20",
+                  ].join(" ")}
+                >
+                  {isOverlap ? (
+                    <div className="absolute bottom-0 right-0 p-1 pointer-events-none z-10">
+                      <div className="text-[10px] font-bold whitespace-nowrap border border-orange-500 bg-orange-500 text-white rounded-tl-sm px-2 py-0.5">
+                        R
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="text-base font-semibold">{date.getDate()}</div>
+                    <div className="text-[10px] px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200">
+                      {formatWeekdayShort(date)}
+                    </div>
                   </div>
+
+                  {svc ? (
+                    <div className="mt-2">
+                      <div className="text-xs font-semibold truncate">{svc.title}</div>
+                      <div className="mt-1 space-y-0.5">
+                        {ROLE_ORDER.map((role) => {
+                          const assignment = svc.assignments.find((a) => a.role === role);
+                          const name = assignment?.musicianName ?? null;
+
+                          return (
+                            <div key={role} className="flex items-baseline gap-2">
+                              <span className="text-[10px] font-medium whitespace-nowrap">
+                                {role} :
+                              </span>
+                              <span className="text-[10px] text-zinc-700 dark:text-zinc-200 truncate">
+                                {name ?? "—"}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {!svc && isRehearsal ? (
+                    <div className="mt-2 w-full text-center text-[10px] font-semibold whitespace-nowrap border border-orange-500 bg-orange-500 text-white rounded-sm py-1">
+                      rehearsal
+                    </div>
+                  ) : null}
                 </div>
-              ) : null}
-            </div>
-          );
-        })}
+              );
+            })}
+          </div>
+        </div>
       </div>
     </section>
   );

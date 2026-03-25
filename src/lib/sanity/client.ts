@@ -98,3 +98,95 @@ export async function fetchServicesForRange(
   }));
 }
 
+export async function fetchRehearsalsForRange(
+  from: string,
+  to: string
+): Promise<string[]> {
+  const parseYMDLocal = (ymd: string): Date | null => {
+    const parts = ymd.split("-").map((x) => Number(x));
+    const [y, m, d] = parts;
+    if (!y || !m || !d) return null;
+    return new Date(y, m - 1, d);
+  };
+
+  const formatYMDLocal = (d: Date): string => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  };
+
+  const addDaysLocal = (d: Date, days: number): Date => {
+    const next = new Date(d.getTime());
+    next.setDate(next.getDate() + days);
+    return next;
+  };
+
+  const rangeFrom = parseYMDLocal(from);
+  const rangeTo = parseYMDLocal(to);
+  if (!rangeFrom || !rangeTo) return [];
+
+  // Rehearsal series:
+  // - one-time: `date` only
+  // - repeating: `date` is startDate, `untilDate` inclusive, `repeatEveryDays` steps by N days
+  // We only fetch series that can generate at least one occurrence in [from, to].
+  const query = `*[_type == "rehearsal" && date <= $to && (
+    (!defined(repeatEveryDays) && date >= $from) ||
+    (defined(repeatEveryDays) && defined(untilDate) && untilDate >= $from)
+  )]{
+    date,
+    repeatEveryDays,
+    untilDate
+  }`;
+
+  const client = getSanityClient();
+  const raw = await client.fetch<
+    Array<{
+      date: string;
+      repeatEveryDays?: number | null;
+      untilDate?: string | null;
+    }>
+  >(query, { from, to });
+
+  const occurrences = new Set<string>();
+  const MAX_ITERATIONS = 2000;
+
+  for (const series of raw) {
+    const start = parseYMDLocal(series.date);
+    if (!start) continue;
+
+    const repeat = series.repeatEveryDays ?? null;
+    const until = series.untilDate ? parseYMDLocal(series.untilDate) : null;
+
+    // One-time rehearsal (no repeat step)
+    if (!repeat || typeof repeat !== "number" || repeat < 1 || !until) {
+      if (start >= rangeFrom && start <= rangeTo) {
+        occurrences.add(formatYMDLocal(start));
+      }
+      continue;
+    }
+
+    if (until < start) continue;
+
+    let current = new Date(start.getTime());
+
+    // Advance to first possible occurrence >= rangeFrom to reduce loops.
+    let advanceGuard = 0;
+    while (current < rangeFrom && current <= until && advanceGuard < MAX_ITERATIONS) {
+      current = addDaysLocal(current, repeat);
+      advanceGuard++;
+    }
+
+    let guard = 0;
+    while (current <= until && current <= rangeTo && guard < MAX_ITERATIONS) {
+      if (current >= rangeFrom && current <= rangeTo) {
+        occurrences.add(formatYMDLocal(current));
+      }
+      current = addDaysLocal(current, repeat);
+      guard++;
+    }
+  }
+
+  return Array.from(occurrences).sort();
+}
+
