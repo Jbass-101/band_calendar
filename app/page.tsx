@@ -5,7 +5,7 @@ export default function Home() {
   return (
     <div className="min-h-full flex flex-col bg-zinc-50 dark:bg-black">
       <main className="w-full max-w-6xl mx-auto px-3 sm:px-4 py-6 sm:py-8 flex-1">
-        <header className="mb-4 sm:mb-6 flex items-start gap-4 flex-nowrap">
+        <header className="mb-4 sm:mb-6 flex items-start sm:items-center gap-4 flex-nowrap">
           <div className="shrink-0">
             <Image
               src="/logo.png"
@@ -17,7 +17,7 @@ export default function Home() {
             />
           </div>
 
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1 flex flex-col sm:justify-center">
             <h1 className="text-left text-2xl sm:text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
               Last Harvest Instrumentalists
             </h1>

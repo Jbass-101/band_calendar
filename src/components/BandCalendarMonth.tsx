@@ -312,7 +312,7 @@ export default function BandCalendarMonth() {
 
                 {!svc && isRehearsal ? (
                   <div className="mt-2 w-full text-center text-[10px] font-semibold whitespace-nowrap border border-orange-500 bg-orange-500 text-white rounded-sm py-1">
-                    rehearsal
+                    Rehearsal
                   </div>
                 ) : null}
               </div>
@@ -396,7 +396,7 @@ export default function BandCalendarMonth() {
                     {!svc && isRehearsal ? (
                       <div className="absolute bottom-0 left-0 right-0 p-1 pointer-events-none">
                         <div className="w-full text-center text-[10px] font-semibold whitespace-nowrap border border-orange-500 bg-orange-500 text-white rounded-sm py-1">
-                          rehearsal
+                          R
                         </div>
                       </div>
                     ) : null}
