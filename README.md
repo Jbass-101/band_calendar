@@ -4,7 +4,7 @@
 - Service cards with musician assignments (by role)
 - Rehearsal markers (supports repeating rehearsals: repeat every N days + until date)
 - Responsive UI: desktop month grid, mobile event list
-- Calendar navigation limited to the current month + 2 months ahead (including current month)
+- Calendar navigation limited to the current month + 1 month ahead (including current month)
 
 ## Run locally
 1. Install dependencies:
