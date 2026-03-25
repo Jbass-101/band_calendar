@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { toPng } from "html-to-image";
 
 type MusicianAssignment = { role: string; musicianName: string | null };
 type Service = {
@@ -52,6 +53,8 @@ export default function BandCalendarMonth() {
   const [rehearsalDates, setRehearsalDates] = useState<Set<string>>(() => new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [exportMode, setExportMode] = useState(false);
+  const exportRef = useRef<HTMLDivElement | null>(null);
 
   const todayKey = useMemo(() => formatYMDLocal(new Date()), []);
   const todayMonthStart = useMemo(() => {
@@ -156,6 +159,39 @@ export default function BandCalendarMonth() {
     return keys.sort();
   }, [grid, serviceByDate, rehearsalDates]);
 
+  const handleDownloadPng = async () => {
+    try {
+      setError(null);
+      setExportMode(true);
+
+      // Give the browser a moment to render the offscreen export container.
+      await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      const node = exportRef.current;
+      if (!node) return;
+
+      const dataUrl = await toPng(node, {
+        cacheBust: true,
+        backgroundColor: "#ffffff",
+        pixelRatio: 2,
+      });
+
+      const y = cursorMonth.getFullYear();
+      const m = String(cursorMonth.getMonth() + 1).padStart(2, "0");
+      const filename = `last-harvest-band-calendar-${y}-${m}.png`;
+
+      const link = document.createElement("a");
+      link.download = filename;
+      link.href = dataUrl;
+      link.click();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to export PNG");
+    } finally {
+      setExportMode(false);
+    }
+  };
+
   return (
     <section className="w-full">
       <div className="flex items-center justify-between gap-3 mb-4">
@@ -187,6 +223,21 @@ export default function BandCalendarMonth() {
             ].join(" ")}
           >
             Next
+          </button>
+
+          <button
+            type="button"
+            onClick={handleDownloadPng}
+            disabled={loading || eventDateKeys.length === 0}
+            className={[
+              "px-2 sm:px-3 py-1 rounded border border-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/30",
+              "text-emerald-700 dark:text-emerald-200",
+              (loading || eventDateKeys.length === 0)
+                ? "opacity-50 cursor-not-allowed hover:bg-transparent"
+                : "",
+            ].join(" ")}
+          >
+            Download PNG
           </button>
         </div>
       </div>
@@ -269,6 +320,93 @@ export default function BandCalendarMonth() {
           })}
         </div>
       </div>
+
+      {/* Offscreen export container (single column, light styling) */}
+      {exportMode ? (
+        <div className="fixed top-0 left-[-100000px] pointer-events-none">
+          <div
+            ref={exportRef}
+            className="w-full bg-white text-zinc-900 p-6"
+            style={{ maxWidth: 900 }}
+          >
+            <div className="text-2xl font-bold mb-4">{monthYearLabel}</div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 pb-1">
+              {eventDateKeys.map((key) => {
+                const svc = serviceByDate.get(key);
+                const date = parseYMDLocal(key);
+                if (!date) return null;
+
+                const isRehearsal = rehearsalDates.has(key);
+                const isOverlap = Boolean(svc) && isRehearsal;
+                const isPast = key < todayKey;
+
+                return (
+                  <div
+                    key={key}
+                    className={[
+                      "min-h-28 rounded-md border p-3 relative overflow-hidden",
+                      isPast
+                        ? "border-zinc-200 bg-zinc-50 opacity-70"
+                        : "border-zinc-200 bg-white",
+                    ].join(" ")}
+                  >
+                    {isOverlap ? (
+                      <div className="absolute bottom-0 right-0 p-1 pointer-events-none z-10">
+                        <div className="text-[10px] font-bold whitespace-nowrap border border-orange-500 bg-orange-500 text-white rounded-tl-sm px-2 py-0.5">
+                          R
+                        </div>
+                      </div>
+                    ) : null}
+
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="text-base font-semibold">
+                        {date.getDate()}
+                      </div>
+                      {svc ? (
+                        <div className="text-[10px] px-2 py-0.5 rounded bg-zinc-100 text-zinc-700">
+                          {formatWeekdayShort(date)}
+                        </div>
+                      ) : null}
+                    </div>
+
+                    {svc ? (
+                      <div className="mt-2">
+                        <div className="text-xs font-semibold truncate">{svc.title}</div>
+                        <div className="mt-2 space-y-0.5">
+                          {ROLE_ORDER.map((role) => {
+                            const assignment = svc.assignments.find((a) => a.role === role);
+                            const name = assignment?.musicianName ?? null;
+
+                            return (
+                              <div key={role} className="flex items-baseline gap-2">
+                                <span className="text-[10px] font-medium whitespace-nowrap">
+                                  {role} :
+                                </span>
+                                <span className="text-[10px] text-zinc-700 truncate">
+                                  {name ?? "—"}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {!svc && isRehearsal ? (
+                      <div className="absolute bottom-0 left-0 right-0 p-1 pointer-events-none">
+                        <div className="w-full text-center text-[10px] font-semibold whitespace-nowrap border border-orange-500 bg-orange-500 text-white rounded-sm py-1">
+                          rehearsal
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
