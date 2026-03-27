@@ -1,12 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import { toPng } from "html-to-image";
+import { Drum, Guitar, Mic, Piano, Shirt, type LucideIcon } from "lucide-react";
 
-type MusicianAssignment = { role: string; musicianName: string | null };
+type MusicianAssignment = { role: string; musicianNames: string[] };
 type Service = {
   date: string; // "YYYY-MM-DD"
   title: string;
+  uniform: string;
   assignments: MusicianAssignment[];
 };
 
@@ -20,30 +23,36 @@ const ROLE_ORDER = [
   "MD",
 ] as const;
 
-const ROLE_BADGE_CLASS: Record<(typeof ROLE_ORDER)[number], string> = {
-  "Lead Vocal":
-    "bg-rose-100 text-rose-800 dark:bg-rose-900/35 dark:text-rose-200",
-  "Lead Keyboard":
-    "bg-violet-100 text-violet-800 dark:bg-violet-900/35 dark:text-violet-200",
-  "Aux Keyboard":
-    "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/35 dark:text-indigo-200",
-  "Lead Guitar":
-    "bg-sky-100 text-sky-800 dark:bg-sky-900/35 dark:text-sky-200",
-  "Bass Guitar":
-    "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/35 dark:text-cyan-200",
-  Drummer:
-    "bg-amber-100 text-amber-800 dark:bg-amber-900/35 dark:text-amber-200",
-  MD: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/35 dark:text-emerald-200",
+/** Mobile: one line — musician name, or role label if unassigned; same colour family as the role */
+const ROLE_MOBILE_LINE_CLASS: Record<(typeof ROLE_ORDER)[number], string> = {
+  "Lead Vocal": "text-rose-700 dark:text-rose-200",
+  "Lead Keyboard": "text-violet-700 dark:text-violet-200",
+  "Aux Keyboard": "text-indigo-700 dark:text-indigo-200",
+  "Lead Guitar": "text-sky-700 dark:text-sky-200",
+  "Bass Guitar": "text-cyan-700 dark:text-cyan-200",
+  Drummer: "text-amber-700 dark:text-amber-200",
+  MD: "text-emerald-700 dark:text-emerald-200",
 };
 
-const ROLE_BADGE_EXPORT_CLASS: Record<(typeof ROLE_ORDER)[number], string> = {
-  "Lead Vocal": "bg-rose-100 text-rose-900",
-  "Lead Keyboard": "bg-violet-100 text-violet-900",
-  "Aux Keyboard": "bg-indigo-100 text-indigo-900",
-  "Lead Guitar": "bg-sky-100 text-sky-900",
-  "Bass Guitar": "bg-cyan-100 text-cyan-900",
-  Drummer: "bg-amber-100 text-amber-900",
-  MD: "bg-emerald-100 text-emerald-900",
+/** Export-only: strong contrast colors on white background */
+const ROLE_EXPORT_LINE_CLASS: Record<(typeof ROLE_ORDER)[number], string> = {
+  "Lead Vocal": "text-rose-900",
+  "Lead Keyboard": "text-violet-900",
+  "Aux Keyboard": "text-indigo-900",
+  "Lead Guitar": "text-sky-900",
+  "Bass Guitar": "text-cyan-900",
+  Drummer: "text-amber-900",
+  MD: "text-emerald-900",
+};
+
+const ROLE_MOBILE_ICON: Record<(typeof ROLE_ORDER)[number], LucideIcon> = {
+  "Lead Vocal": Mic,
+  "Lead Keyboard": Piano,
+  "Aux Keyboard": Piano,
+  "Lead Guitar": Guitar,
+  "Bass Guitar": Guitar,
+  Drummer: Drum,
+  MD: Mic,
 };
 
 function formatYMDLocal(d: Date) {
@@ -73,6 +82,30 @@ function addMonths(d: Date, delta: number) {
   return next;
 }
 
+function getSundayWeekBucket(d: Date): number | null {
+  // Sunday is 0 in JS Date#getDay()
+  if (d.getDay() !== 0) return null;
+  return Math.floor((d.getDate() - 1) / 7) + 1;
+}
+
+function formatServiceTitleForDate(date: Date, title: string): string {
+  const sundayBucket = getSundayWeekBucket(date);
+  if (!sundayBucket) return title;
+  return `Week ${sundayBucket} : ${title}`;
+}
+
+function formatExportGeneratedAt(d: Date): string {
+  return new Intl.DateTimeFormat(undefined, {
+    weekday: "short",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(d);
+}
+
 export default function BandCalendarMonth() {
   const [cursorMonth, setCursorMonth] = useState(() => new Date());
   const [services, setServices] = useState<Service[]>([]);
@@ -80,6 +113,7 @@ export default function BandCalendarMonth() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [exportMode, setExportMode] = useState(false);
+  const [exportGeneratedAt, setExportGeneratedAt] = useState<Date | null>(null);
   const exportRef = useRef<HTMLDivElement | null>(null);
 
   const todayKey = useMemo(() => formatYMDLocal(new Date()), []);
@@ -87,7 +121,7 @@ export default function BandCalendarMonth() {
     const t = new Date();
     return new Date(t.getFullYear(), t.getMonth(), 1);
   }, []);
-  const maxMonthStart = useMemo(() => addMonths(todayMonthStart, 1), [todayMonthStart]);
+  const maxMonthStart = useMemo(() => addMonths(todayMonthStart, 2), [todayMonthStart]);
   const cursorMonthStart = useMemo(
     () => new Date(cursorMonth.getFullYear(), cursorMonth.getMonth(), 1),
     [cursorMonth]
@@ -191,6 +225,7 @@ export default function BandCalendarMonth() {
   const handleDownloadPng = async () => {
     try {
       setError(null);
+      setExportGeneratedAt(new Date());
       setExportMode(true);
 
       // Give the browser a moment to render the offscreen export container.
@@ -359,29 +394,49 @@ export default function BandCalendarMonth() {
                 {svc ? (
                   <div className="mt-2">
                     <div className="text-xs font-semibold tracking-tight truncate text-zinc-900 dark:text-zinc-100">
-                      {svc.title}
+                      {formatServiceTitleForDate(date, svc.title)}
                     </div>
                     <div className="mt-1.5 space-y-1">
                       {ROLE_ORDER.map((role) => {
                         const assignment = svc.assignments.find((a) => a.role === role);
-                        const name = assignment?.musicianName ?? null;
+                        const names = Array.isArray(assignment?.musicianNames)
+                          ? assignment.musicianNames.filter((n) => typeof n === "string" && n.trim().length > 0)
+                          : [];
+                        const displayNames = names.join(" | ");
+                        const hasName = displayNames.length > 0;
+                        const lineClass = ROLE_MOBILE_LINE_CLASS[role];
+                        const RoleIcon = ROLE_MOBILE_ICON[role];
 
                         return (
-                          <div key={role} className="flex items-center gap-2.5">
-                            <span
-                              className={[
-                                "text-[11px] font-semibold whitespace-nowrap px-1.5 py-0.5 rounded-md inline-flex w-[7.5rem] justify-start",
-                                ROLE_BADGE_CLASS[role],
-                              ].join(" ")}
-                            >
-                              {role} :
-                            </span>
-                            <span className="text-[11px] text-zinc-800 dark:text-zinc-100 truncate">
-                              {name ?? "—"}
-                            </span>
+                          <div key={role} className="min-w-0">
+                            <div className="inline-flex min-w-0 items-center gap-1.5">
+                              <RoleIcon className={["h-3.5 w-3.5 shrink-0", lineClass].join(" ")} aria-hidden />
+                              <span className={["text-[11px] font-medium shrink-0", lineClass].join(" ")}>:</span>
+                              <span
+                                className={[
+                                  "text-[11px] truncate block min-w-0",
+                                  lineClass,
+                                  !hasName ? "font-semibold" : "",
+                                ].join(" ")}
+                              >
+                                  {hasName ? displayNames : "—"}
+                              </span>
+                            </div>
                           </div>
                         );
                       })}
+                    </div>
+
+                    <div className="mt-2 border-t border-zinc-200/80 dark:border-zinc-800/80 pt-2">
+                      <div className="inline-flex min-w-0 items-center gap-1.5">
+                        <Shirt className="h-3.5 w-3.5 shrink-0 text-zinc-600 dark:text-zinc-300" aria-hidden />
+                        <span className="text-[11px] font-medium shrink-0 text-zinc-600 dark:text-zinc-300">:</span>
+                        <span className="text-[11px] truncate block min-w-0 text-zinc-700 dark:text-zinc-200">
+                          {typeof svc.uniform === "string" && svc.uniform.trim().length > 0
+                            ? svc.uniform.trim()
+                            : "Smart Casual"}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 ) : null}
@@ -405,7 +460,17 @@ export default function BandCalendarMonth() {
             className="w-full bg-white text-zinc-900 p-6"
             style={{ maxWidth: 900 }}
           >
-            <div className="text-2xl font-bold mb-4">{monthYearLabel}</div>
+            <div className="mb-4 flex items-center gap-2.5">
+              <Image
+                src="/logo.png"
+                alt=""
+                width={32}
+                height={32}
+                className="w-8 h-8 object-contain select-none"
+                unoptimized
+              />
+              <div className="text-2xl font-bold">{monthYearLabel}</div>
+            </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 pb-1">
               {eventDateKeys.map((key) => {
@@ -439,37 +504,57 @@ export default function BandCalendarMonth() {
                       <div className="text-base font-semibold">
                         {date.getDate()}
                       </div>
-                      {svc ? (
-                        <div className="text-[10px] px-2 py-0.5 rounded bg-zinc-100 text-zinc-700">
-                          {formatWeekdayShort(date)}
-                        </div>
-                      ) : null}
+                      <div className="text-[10px] px-2 py-0.5 rounded bg-zinc-100 text-zinc-700">
+                        {formatWeekdayShort(date)}
+                      </div>
                     </div>
 
                     {svc ? (
                       <div className="mt-2">
-                        <div className="text-xs font-semibold truncate">{svc.title}</div>
+                        <div className="text-xs font-semibold truncate">
+                          {formatServiceTitleForDate(date, svc.title)}
+                        </div>
                         <div className="mt-2 space-y-1">
                           {ROLE_ORDER.map((role) => {
                             const assignment = svc.assignments.find((a) => a.role === role);
-                            const name = assignment?.musicianName ?? null;
+                            const names = Array.isArray(assignment?.musicianNames)
+                              ? assignment.musicianNames.filter(
+                                  (n) => typeof n === "string" && n.trim().length > 0
+                                )
+                              : [];
+                            const displayNames = names.join(" | ");
+                            const hasName = displayNames.length > 0;
+                            const lineClass = ROLE_EXPORT_LINE_CLASS[role];
+                            const RoleIcon = ROLE_MOBILE_ICON[role];
 
                             return (
-                              <div key={role} className="flex items-center gap-2.5">
+                              <div key={role} className="flex w-full min-w-0 items-center gap-1.5">
+                                <RoleIcon className={["h-3.5 w-3.5 shrink-0", lineClass].join(" ")} aria-hidden />
+                                <span className={["text-[11px] font-semibold shrink-0", lineClass].join(" ")}>:</span>
                                 <span
                                   className={[
-                                    "text-[11px] font-semibold whitespace-nowrap px-1.5 py-0.5 rounded-md inline-flex w-[7.5rem] justify-start",
-                                    ROLE_BADGE_EXPORT_CLASS[role],
+                                    "text-[11px] truncate block min-w-0",
+                                    lineClass,
+                                    !hasName ? "font-semibold" : "",
                                   ].join(" ")}
                                 >
-                                  {role} :
-                                </span>
-                                <span className="text-[11px] text-zinc-700 truncate">
-                                  {name ?? "—"}
+                                  {hasName ? displayNames : "—"}
                                 </span>
                               </div>
                             );
                           })}
+                        </div>
+
+                        <div className="mt-2 border-t border-zinc-200 pt-2">
+                          <div className="inline-flex min-w-0 items-center gap-1.5">
+                            <Shirt className="h-3.5 w-3.5 shrink-0 text-zinc-700" aria-hidden />
+                            <span className="text-[11px] font-semibold shrink-0 text-zinc-700">:</span>
+                            <span className="text-[11px] truncate block min-w-0 text-zinc-800">
+                              {typeof svc.uniform === "string" && svc.uniform.trim().length > 0
+                                ? svc.uniform.trim()
+                                : "Smart Casual"}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     ) : null}
@@ -484,6 +569,10 @@ export default function BandCalendarMonth() {
                   </div>
                 );
               })}
+            </div>
+
+            <div className="mt-4 pt-3 border-t border-zinc-200 text-center text-[11px] text-zinc-600">
+              Generated: {formatExportGeneratedAt(exportGeneratedAt ?? new Date())}
             </div>
           </div>
         </div>

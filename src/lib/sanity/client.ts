@@ -2,12 +2,13 @@ import { createClient } from "@sanity/client";
 
 export type MusicianAssignment = {
   role: string;
-  musicianName: string | null;
+  musicianNames: string[];
 };
 
 export type Service = {
   date: string; // "YYYY-MM-DD"
   title: string;
+  uniform: string;
   assignments: MusicianAssignment[];
 };
 
@@ -58,13 +59,14 @@ export async function fetchServicesForRange(
   const query = `*[_type == "service" && date >= $from && date <= $to]{
     title,
     date,
-    "leadVocalName": leadVocal->name,
-    "leadKeyboardName": leadKeyboard->name,
-    "auxKeyboardName": auxKeyboard->name,
-    "leadGuitarName": leadGuitar->name,
-    "bassGuitarName": bassGuitar->name,
-    "drummerName": drummer->name,
-    "mdName": md->name
+    uniform,
+    "leadVocalNames": leadVocal[]->name,
+    "leadKeyboardNames": leadKeyboard[]->name,
+    "auxKeyboardNames": auxKeyboard[]->name,
+    "leadGuitarNames": leadGuitar[]->name,
+    "bassGuitarNames": bassGuitar[]->name,
+    "drummerNames": drummer[]->name,
+    "mdNames": md[]->name
   }`;
 
   const client = getSanityClient();
@@ -73,27 +75,39 @@ export async function fetchServicesForRange(
     Array<{
       title: string;
       date: string;
-      leadVocalName?: string | null;
-      leadKeyboardName?: string | null;
-      auxKeyboardName?: string | null;
-      leadGuitarName?: string | null;
-      bassGuitarName?: string | null;
-      drummerName?: string | null;
-      mdName?: string | null;
+      uniform?: string | null;
+      leadVocalNames?: Array<string | null> | null;
+      leadKeyboardNames?: Array<string | null> | null;
+      auxKeyboardNames?: Array<string | null> | null;
+      leadGuitarNames?: Array<string | null> | null;
+      bassGuitarNames?: Array<string | null> | null;
+      drummerNames?: Array<string | null> | null;
+      mdNames?: Array<string | null> | null;
     }>
   >(query, { from, to });
+
+  const normalizeNames = (value: Array<string | null> | null | undefined): string[] => {
+    if (!Array.isArray(value)) return [];
+    return value
+      .map((n) => (typeof n === "string" ? n.trim() : ""))
+      .filter((n) => n.length > 0);
+  };
 
   return raw.map((s) => ({
     date: s.date,
     title: s.title,
+    uniform:
+      typeof s.uniform === "string" && s.uniform.trim().length > 0
+        ? s.uniform.trim()
+        : "Smart Casual",
     assignments: [
-      { role: "Lead Vocal", musicianName: s.leadVocalName ?? null },
-      { role: "Lead Keyboard", musicianName: s.leadKeyboardName ?? null },
-      { role: "Aux Keyboard", musicianName: s.auxKeyboardName ?? null },
-      { role: "Lead Guitar", musicianName: s.leadGuitarName ?? null },
-      { role: "Bass Guitar", musicianName: s.bassGuitarName ?? null },
-      { role: "Drummer", musicianName: s.drummerName ?? null },
-      { role: "MD", musicianName: s.mdName ?? null },
+      { role: "Lead Vocal", musicianNames: normalizeNames(s.leadVocalNames) },
+      { role: "Lead Keyboard", musicianNames: normalizeNames(s.leadKeyboardNames) },
+      { role: "Aux Keyboard", musicianNames: normalizeNames(s.auxKeyboardNames) },
+      { role: "Lead Guitar", musicianNames: normalizeNames(s.leadGuitarNames) },
+      { role: "Bass Guitar", musicianNames: normalizeNames(s.bassGuitarNames) },
+      { role: "Drummer", musicianNames: normalizeNames(s.drummerNames) },
+      { role: "MD", musicianNames: normalizeNames(s.mdNames) },
     ].filter((a) => ROLE_ORDER.includes(a.role as (typeof ROLE_ORDER)[number])),
   }));
 }

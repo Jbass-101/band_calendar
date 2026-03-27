@@ -33,6 +33,59 @@ type ValidationContextLike = {
   getClient: (opts: { apiVersion: string }) => SanityClientLike;
 };
 
+function createRoleField(roleName: string, fieldName: string) {
+  return defineField({
+    name: fieldName,
+    title: roleName,
+    type: "array",
+    of: [
+      {
+        type: "reference",
+        to: [{ type: "musician" }],
+        options: {
+          filter: ROLE_FILTERS[roleName],
+        },
+      },
+    ],
+    validation: (rule) =>
+      rule.custom(async (value: unknown, context: ValidationContextLike) => {
+        if (value === undefined || value === null) return true;
+        if (!Array.isArray(value)) return true;
+
+        const refs = value
+          .map((item) => getRefId(item))
+          .filter((id): id is string => Boolean(id));
+
+        // Prevent selecting the same musician more than once for one role.
+        const uniqueRefs = new Set(refs);
+        if (uniqueRefs.size !== refs.length) {
+          return `Duplicate musicians are not allowed for "${roleName}".`;
+        }
+
+        if (refs.length === 0) return true;
+
+        const client = context.getClient({ apiVersion: "2026-03-25" });
+        const musicians = await client.fetch<Array<{ _id: string; roles?: string[] }>>(
+          `*[_id in $ids]{ _id, roles }`,
+          { ids: refs }
+        );
+
+        const rolesById = new Map(
+          musicians.map((m) => [m._id, Array.isArray(m.roles) ? m.roles : []] as const)
+        );
+
+        for (const refId of refs) {
+          const musicianRoles = rolesById.get(refId) ?? [];
+          if (!musicianRoles.includes(roleName)) {
+            return `Each selected musician must include "${roleName}" in their roles[].`;
+          }
+        }
+
+        return true;
+      }),
+  });
+}
+
 export const service = defineType({
   name: "service",
   title: "Service",
@@ -52,208 +105,19 @@ export const service = defineType({
       validation: (rule) => rule.required(),
     }),
     defineField({
-      name: "leadVocal",
-      title: "Lead Vocal",
-      type: "reference",
-      to: [{ type: "musician" }],
-      options: {
-        filter: ROLE_FILTERS["Lead Vocal"],
-      },
-      validation: (rule) =>
-        rule.custom(async (value: unknown, context: ValidationContextLike) => {
-          const refId = getRefId(value);
-          if (!refId) return true;
-
-          const client = context.getClient({ apiVersion: "2026-03-25" });
-          const musician = await client.fetch<{ roles?: string[] }>(
-            `*[_id == $id][0]{ roles }`,
-            { id: refId }
-          );
-
-          const musicianRoles = Array.isArray(musician?.roles)
-            ? musician.roles
-            : [];
-
-          if (!musicianRoles.includes("Lead Vocal")) {
-            return `Selected musician must include "Lead Vocal" in their roles[].`;
-          }
-          return true;
-        }),
+      name: "uniform",
+      title: "Uniform",
+      type: "string",
+      description: "Service dress code (defaults to Smart Casual).",
+      initialValue: "Smart Casual",
     }),
-    defineField({
-      name: "leadKeyboard",
-      title: "Lead Keyboard",
-      type: "reference",
-      to: [{ type: "musician" }],
-      options: {
-        filter: ROLE_FILTERS["Lead Keyboard"],
-      },
-      validation: (rule) =>
-        rule.custom(async (value: unknown, context: ValidationContextLike) => {
-          const refId = getRefId(value);
-          if (!refId) return true;
-
-          const client = context.getClient({ apiVersion: "2026-03-25" });
-          const musician = await client.fetch<{ roles?: string[] }>(
-            `*[_id == $id][0]{ roles }`,
-            { id: refId }
-          );
-
-          const musicianRoles = Array.isArray(musician?.roles)
-            ? musician.roles
-            : [];
-
-          if (!musicianRoles.includes("Lead Keyboard")) {
-            return `Selected musician must include "Lead Keyboard" in their roles[].`;
-          }
-          return true;
-        }),
-    }),
-    defineField({
-      name: "auxKeyboard",
-      title: "Aux Keyboard",
-      type: "reference",
-      to: [{ type: "musician" }],
-      options: {
-        filter: ROLE_FILTERS["Aux Keyboard"],
-      },
-      validation: (rule) =>
-        rule.custom(async (value: unknown, context: ValidationContextLike) => {
-          const refId = getRefId(value);
-          if (!refId) return true;
-
-          const client = context.getClient({ apiVersion: "2026-03-25" });
-          const musician = await client.fetch<{ roles?: string[] }>(
-            `*[_id == $id][0]{ roles }`,
-            { id: refId }
-          );
-
-          const musicianRoles = Array.isArray(musician?.roles)
-            ? musician.roles
-            : [];
-
-          if (!musicianRoles.includes("Aux Keyboard")) {
-            return `Selected musician must include "Aux Keyboard" in their roles[].`;
-          }
-          return true;
-        }),
-    }),
-    defineField({
-      name: "leadGuitar",
-      title: "Lead Guitar",
-      type: "reference",
-      to: [{ type: "musician" }],
-      options: {
-        filter: ROLE_FILTERS["Lead Guitar"],
-      },
-      validation: (rule) =>
-        rule.custom(async (value: unknown, context: ValidationContextLike) => {
-          const refId = getRefId(value);
-          if (!refId) return true;
-
-          const client = context.getClient({ apiVersion: "2026-03-25" });
-          const musician = await client.fetch<{ roles?: string[] }>(
-            `*[_id == $id][0]{ roles }`,
-            { id: refId }
-          );
-
-          const musicianRoles = Array.isArray(musician?.roles)
-            ? musician.roles
-            : [];
-
-          if (!musicianRoles.includes("Lead Guitar")) {
-            return `Selected musician must include "Lead Guitar" in their roles[].`;
-          }
-          return true;
-        }),
-    }),
-    defineField({
-      name: "bassGuitar",
-      title: "Bass Guitar",
-      type: "reference",
-      to: [{ type: "musician" }],
-      options: {
-        filter: ROLE_FILTERS["Bass Guitar"],
-      },
-      validation: (rule) =>
-        rule.custom(async (value: unknown, context: ValidationContextLike) => {
-          const refId = getRefId(value);
-          if (!refId) return true;
-
-          const client = context.getClient({ apiVersion: "2026-03-25" });
-          const musician = await client.fetch<{ roles?: string[] }>(
-            `*[_id == $id][0]{ roles }`,
-            { id: refId }
-          );
-
-          const musicianRoles = Array.isArray(musician?.roles)
-            ? musician.roles
-            : [];
-
-          if (!musicianRoles.includes("Bass Guitar")) {
-            return `Selected musician must include "Bass Guitar" in their roles[].`;
-          }
-          return true;
-        }),
-    }),
-    defineField({
-      name: "drummer",
-      title: "Drummer",
-      type: "reference",
-      to: [{ type: "musician" }],
-      options: {
-        filter: ROLE_FILTERS["Drummer"],
-      },
-      validation: (rule) =>
-        rule.custom(async (value: unknown, context: ValidationContextLike) => {
-          const refId = getRefId(value);
-          if (!refId) return true;
-
-          const client = context.getClient({ apiVersion: "2026-03-25" });
-          const musician = await client.fetch<{ roles?: string[] }>(
-            `*[_id == $id][0]{ roles }`,
-            { id: refId }
-          );
-
-          const musicianRoles = Array.isArray(musician?.roles)
-            ? musician.roles
-            : [];
-
-          if (!musicianRoles.includes("Drummer")) {
-            return `Selected musician must include "Drummer" in their roles[].`;
-          }
-          return true;
-        }),
-    }),
-    defineField({
-      name: "md",
-      title: "MD",
-      type: "reference",
-      to: [{ type: "musician" }],
-      options: {
-        filter: ROLE_FILTERS["MD"],
-      },
-      validation: (rule) =>
-        rule.custom(async (value: unknown, context: ValidationContextLike) => {
-          const refId = getRefId(value);
-          if (!refId) return true;
-
-          const client = context.getClient({ apiVersion: "2026-03-25" });
-          const musician = await client.fetch<{ roles?: string[] }>(
-            `*[_id == $id][0]{ roles }`,
-            { id: refId }
-          );
-
-          const musicianRoles = Array.isArray(musician?.roles)
-            ? musician.roles
-            : [];
-
-          if (!musicianRoles.includes("MD")) {
-            return `Selected musician must include "MD" in their roles[].`;
-          }
-          return true;
-        }),
-    }),
+    createRoleField("Lead Vocal", "leadVocal"),
+    createRoleField("Lead Keyboard", "leadKeyboard"),
+    createRoleField("Aux Keyboard", "auxKeyboard"),
+    createRoleField("Lead Guitar", "leadGuitar"),
+    createRoleField("Bass Guitar", "bassGuitar"),
+    createRoleField("Drummer", "drummer"),
+    createRoleField("MD", "md"),
   ],
 });
 
