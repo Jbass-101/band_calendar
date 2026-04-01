@@ -1065,58 +1065,109 @@ export default function ContributionsManager({ authorized }: { authorized: boole
             ) : filteredRows.length === 0 ? (
               <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400">No members found.</p>
             ) : (
-              <div className="mt-3 overflow-x-auto max-h-[28rem] rounded-lg border border-zinc-200 dark:border-zinc-800">
-                <table className="min-w-full text-sm">
-                  <thead>
-                    <tr className="text-left text-zinc-600 dark:text-zinc-300 border-b border-zinc-200 dark:border-zinc-800">
-                      <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 px-3">Member</th>
-                      <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3">Type</th>
-                      <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3 text-right">Expected</th>
-                      <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3 text-right">Paid</th>
-                      <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3 text-right">Balance</th>
-                      <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredRows.map((row, idx) => (
-                      <tr
-                        key={row.memberId}
-                        className={[
-                          "border-b border-zinc-100 dark:border-zinc-900 hover:bg-zinc-50/70 dark:hover:bg-zinc-900/40",
-                          idx % 2 === 1 ? "bg-zinc-50/30 dark:bg-zinc-950/30" : "",
-                        ].join(" ")}
-                      >
-                        <td className="py-2 px-3 text-zinc-900 dark:text-zinc-100">{row.memberName}</td>
-                        <td className="py-2 pr-3 text-zinc-700 dark:text-zinc-300">
-                          {row.isCommittee ? "Committee" : "Non-committee"}
-                        </td>
-                        <td className="py-2 pr-3 text-zinc-900 dark:text-zinc-100 text-right">{money(row.expectedAmount)}</td>
-                        <td className="py-2 pr-3 text-zinc-900 dark:text-zinc-100 text-right">{money(row.paidAmount)}</td>
-                        <td
+              <>
+                <div className="mt-3 space-y-2 sm:hidden">
+                  {filteredRows.map((row) => (
+                    <div
+                      key={row.memberId}
+                      className="rounded-lg border border-zinc-200 dark:border-zinc-800 p-3 bg-white/80 dark:bg-zinc-950/50"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{row.memberName}</p>
+                        <span
                           className={[
-                            "py-2 pr-3 text-right",
-                            row.balance < 0
-                              ? "text-rose-600 dark:text-rose-400"
-                              : "text-zinc-900 dark:text-zinc-100",
+                            "inline-flex shrink-0 rounded-full px-2 py-0.5 text-xs font-medium capitalize",
+                            statusBadgeClass(row.status),
                           ].join(" ")}
                         >
-                          {money(row.balance)}
-                        </td>
-                        <td className="py-2 pr-3">
-                          <span
+                          {row.status}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                        {row.isCommittee ? "Committee" : "Non-committee"}
+                      </p>
+                      <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+                        <div>
+                          <p className="text-zinc-500 dark:text-zinc-400">Expected</p>
+                          <p className="text-zinc-900 dark:text-zinc-100">{money(row.expectedAmount)}</p>
+                        </div>
+                        <div>
+                          <p className="text-zinc-500 dark:text-zinc-400">Paid</p>
+                          <p className="text-zinc-900 dark:text-zinc-100">{money(row.paidAmount)}</p>
+                        </div>
+                        <div>
+                          <p className="text-zinc-500 dark:text-zinc-400">Balance</p>
+                          <p
+                            className={
+                              row.balance < 0
+                                ? "text-rose-600 dark:text-rose-400"
+                                : "text-zinc-900 dark:text-zinc-100"
+                            }
+                          >
+                            {money(row.balance)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3 hidden sm:block overflow-x-auto max-h-[28rem] rounded-lg border border-zinc-200 dark:border-zinc-800">
+                  <table className="min-w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-zinc-600 dark:text-zinc-300 border-b border-zinc-200 dark:border-zinc-800">
+                        <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 px-3">Member</th>
+                        <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3">Type</th>
+                        <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3 text-right">Expected</th>
+                        <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3 text-right">Paid</th>
+                        <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3 text-right">Balance</th>
+                        <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredRows.map((row, idx) => (
+                        <tr
+                          key={row.memberId}
+                          className={[
+                            "border-b border-zinc-100 dark:border-zinc-900 hover:bg-zinc-50/70 dark:hover:bg-zinc-900/40",
+                            idx % 2 === 1 ? "bg-zinc-50/30 dark:bg-zinc-950/30" : "",
+                          ].join(" ")}
+                        >
+                          <td className="py-2 px-3 text-zinc-900 dark:text-zinc-100">{row.memberName}</td>
+                          <td className="py-2 pr-3 text-zinc-700 dark:text-zinc-300">
+                            {row.isCommittee ? "Committee" : "Non-committee"}
+                          </td>
+                          <td className="py-2 pr-3 text-zinc-900 dark:text-zinc-100 text-right">
+                            {money(row.expectedAmount)}
+                          </td>
+                          <td className="py-2 pr-3 text-zinc-900 dark:text-zinc-100 text-right">
+                            {money(row.paidAmount)}
+                          </td>
+                          <td
                             className={[
-                              "inline-flex rounded-full px-2 py-0.5 text-xs font-medium capitalize",
-                              statusBadgeClass(row.status),
+                              "py-2 pr-3 text-right",
+                              row.balance < 0
+                                ? "text-rose-600 dark:text-rose-400"
+                                : "text-zinc-900 dark:text-zinc-100",
                             ].join(" ")}
                           >
-                            {row.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                            {money(row.balance)}
+                          </td>
+                          <td className="py-2 pr-3">
+                            <span
+                              className={[
+                                "inline-flex rounded-full px-2 py-0.5 text-xs font-medium capitalize",
+                                statusBadgeClass(row.status),
+                              ].join(" ")}
+                            >
+                              {row.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
           </div>
         </>
@@ -1247,55 +1298,103 @@ export default function ContributionsManager({ authorized }: { authorized: boole
             ) : contributions.length === 0 ? (
               <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400">No contributions found.</p>
             ) : (
-              <div className="mt-3 overflow-x-auto max-h-[28rem] rounded-lg border border-zinc-200 dark:border-zinc-800">
-                <table className="min-w-full text-sm">
-                  <thead>
-                    <tr className="text-left text-zinc-600 dark:text-zinc-300 border-b border-zinc-200 dark:border-zinc-800">
-                      <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 px-3">Member</th>
-                      <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3 text-right">Amount</th>
-                      <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3">Paid date</th>
-                      <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3">Notes</th>
-                      <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3 w-36">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {contributions.map((item, idx) => (
-                      <tr
-                        key={item._id}
-                        className={[
-                          "border-b border-zinc-100 dark:border-zinc-900 hover:bg-zinc-50/70 dark:hover:bg-zinc-900/40",
-                          idx % 2 === 1 ? "bg-zinc-50/30 dark:bg-zinc-950/30" : "",
-                        ].join(" ")}
-                      >
-                        <td className="py-2 px-3 text-zinc-900 dark:text-zinc-100">{item.memberName ?? "—"}</td>
-                        <td className="py-2 pr-3 text-zinc-900 dark:text-zinc-100 text-right">{money(item.amount)}</td>
-                        <td className="py-2 pr-3 text-zinc-900 dark:text-zinc-100">
-                          {formatIsoDateToDDMMYYYY(item.paidDate ?? null) || "—"}
-                        </td>
-                        <td className="py-2 pr-3 text-zinc-700 dark:text-zinc-300">{item.notes?.trim() || "—"}</td>
-                        <td className="py-2 pr-3 whitespace-nowrap">
-                          <button
-                            type="button"
-                            onClick={() => beginEditContribution(item)}
-                            disabled={Boolean(contributionDeletingId) || saving}
-                            className="text-xs text-sky-600 dark:text-sky-400 hover:underline mr-2 disabled:opacity-50"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void deleteContribution(item._id)}
-                            disabled={contributionDeletingId === item._id || saving}
-                            className="text-xs text-rose-600 dark:text-rose-400 hover:underline disabled:opacity-50"
-                          >
-                            {contributionDeletingId === item._id ? "…" : "Delete"}
-                          </button>
-                        </td>
+              <>
+                <div className="mt-3 space-y-2 sm:hidden">
+                  {contributions.map((item) => (
+                    <div
+                      key={item._id}
+                      className="rounded-lg border border-zinc-200 dark:border-zinc-800 p-3 bg-white/80 dark:bg-zinc-950/50"
+                    >
+                      <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{item.memberName ?? "—"}</p>
+                      <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <p className="text-zinc-500 dark:text-zinc-400">Amount</p>
+                          <p className="text-zinc-900 dark:text-zinc-100">{money(item.amount)}</p>
+                        </div>
+                        <div>
+                          <p className="text-zinc-500 dark:text-zinc-400">Paid date</p>
+                          <p className="text-zinc-900 dark:text-zinc-100">
+                            {formatIsoDateToDDMMYYYY(item.paidDate ?? null) || "—"}
+                          </p>
+                        </div>
+                        <div className="col-span-2">
+                          <p className="text-zinc-500 dark:text-zinc-400">Notes</p>
+                          <p className="text-zinc-700 dark:text-zinc-300">{item.notes?.trim() || "—"}</p>
+                        </div>
+                      </div>
+                      <div className="mt-2 flex gap-3">
+                        <button
+                          type="button"
+                          onClick={() => beginEditContribution(item)}
+                          disabled={Boolean(contributionDeletingId) || saving}
+                          className="text-xs text-sky-600 dark:text-sky-400 hover:underline disabled:opacity-50"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void deleteContribution(item._id)}
+                          disabled={contributionDeletingId === item._id || saving}
+                          className="text-xs text-rose-600 dark:text-rose-400 hover:underline disabled:opacity-50"
+                        >
+                          {contributionDeletingId === item._id ? "…" : "Delete"}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3 hidden sm:block overflow-x-auto max-h-[28rem] rounded-lg border border-zinc-200 dark:border-zinc-800">
+                  <table className="min-w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-zinc-600 dark:text-zinc-300 border-b border-zinc-200 dark:border-zinc-800">
+                        <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 px-3">Member</th>
+                        <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3 text-right">Amount</th>
+                        <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3">Paid date</th>
+                        <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3">Notes</th>
+                        <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3 w-36">Actions</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {contributions.map((item, idx) => (
+                        <tr
+                          key={item._id}
+                          className={[
+                            "border-b border-zinc-100 dark:border-zinc-900 hover:bg-zinc-50/70 dark:hover:bg-zinc-900/40",
+                            idx % 2 === 1 ? "bg-zinc-50/30 dark:bg-zinc-950/30" : "",
+                          ].join(" ")}
+                        >
+                          <td className="py-2 px-3 text-zinc-900 dark:text-zinc-100">{item.memberName ?? "—"}</td>
+                          <td className="py-2 pr-3 text-zinc-900 dark:text-zinc-100 text-right">
+                            {money(item.amount)}
+                          </td>
+                          <td className="py-2 pr-3 text-zinc-900 dark:text-zinc-100">
+                            {formatIsoDateToDDMMYYYY(item.paidDate ?? null) || "—"}
+                          </td>
+                          <td className="py-2 pr-3 text-zinc-700 dark:text-zinc-300">{item.notes?.trim() || "—"}</td>
+                          <td className="py-2 pr-3 whitespace-nowrap">
+                            <button
+                              type="button"
+                              onClick={() => beginEditContribution(item)}
+                              disabled={Boolean(contributionDeletingId) || saving}
+                              className="text-xs text-sky-600 dark:text-sky-400 hover:underline mr-2 disabled:opacity-50"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void deleteContribution(item._id)}
+                              disabled={contributionDeletingId === item._id || saving}
+                              className="text-xs text-rose-600 dark:text-rose-400 hover:underline disabled:opacity-50"
+                            >
+                              {contributionDeletingId === item._id ? "…" : "Delete"}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
           </div>
         </>
@@ -1402,55 +1501,101 @@ export default function ContributionsManager({ authorized }: { authorized: boole
             ) : expenses.length === 0 ? (
               <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400">No expenses recorded.</p>
             ) : (
-              <div className="mt-3 overflow-x-auto max-h-[28rem] rounded-lg border border-zinc-200 dark:border-zinc-800">
-                <table className="min-w-full text-sm">
-                  <thead>
-                    <tr className="text-left text-zinc-600 dark:text-zinc-300 border-b border-zinc-200 dark:border-zinc-800">
-                      <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 px-3">Date</th>
-                      <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3">Description</th>
-                      <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3 text-right">Amount</th>
-                      <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3">Notes</th>
-                      <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3 w-36">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {expenses.map((ex, idx) => (
-                      <tr
-                        key={ex._id}
-                        className={[
-                          "border-b border-zinc-100 dark:border-zinc-900 hover:bg-zinc-50/70 dark:hover:bg-zinc-900/40",
-                          idx % 2 === 1 ? "bg-zinc-50/30 dark:bg-zinc-950/30" : "",
-                        ].join(" ")}
-                      >
-                        <td className="py-2 px-3 text-zinc-900 dark:text-zinc-100">
-                          {formatIsoDateToDDMMYYYY(ex.date ?? null) || "—"}
-                        </td>
-                        <td className="py-2 pr-3 text-zinc-900 dark:text-zinc-100">{ex.description}</td>
-                        <td className="py-2 pr-3 text-zinc-900 dark:text-zinc-100 text-right">{money(ex.amount)}</td>
-                        <td className="py-2 pr-3 text-zinc-700 dark:text-zinc-300">{ex.notes?.trim() || "—"}</td>
-                        <td className="py-2 pr-3 whitespace-nowrap">
-                          <button
-                            type="button"
-                            onClick={() => beginEditExpense(ex)}
-                            disabled={expenseSaving}
-                            className="text-xs text-sky-600 dark:text-sky-400 hover:underline mr-2 disabled:opacity-50"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void deleteExpense(ex._id)}
-                            disabled={expenseSaving}
-                            className="text-xs text-rose-600 dark:text-rose-400 hover:underline disabled:opacity-50"
-                          >
-                            Remove
-                          </button>
-                        </td>
+              <>
+                <div className="mt-3 space-y-2 sm:hidden">
+                  {expenses.map((ex) => (
+                    <div
+                      key={ex._id}
+                      className="rounded-lg border border-zinc-200 dark:border-zinc-800 p-3 bg-white/80 dark:bg-zinc-950/50"
+                    >
+                      <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{ex.description}</p>
+                      <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <p className="text-zinc-500 dark:text-zinc-400">Date</p>
+                          <p className="text-zinc-900 dark:text-zinc-100">
+                            {formatIsoDateToDDMMYYYY(ex.date ?? null) || "—"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-zinc-500 dark:text-zinc-400">Amount</p>
+                          <p className="text-zinc-900 dark:text-zinc-100">{money(ex.amount)}</p>
+                        </div>
+                        <div className="col-span-2">
+                          <p className="text-zinc-500 dark:text-zinc-400">Notes</p>
+                          <p className="text-zinc-700 dark:text-zinc-300">{ex.notes?.trim() || "—"}</p>
+                        </div>
+                      </div>
+                      <div className="mt-2 flex gap-3">
+                        <button
+                          type="button"
+                          onClick={() => beginEditExpense(ex)}
+                          disabled={expenseSaving}
+                          className="text-xs text-sky-600 dark:text-sky-400 hover:underline disabled:opacity-50"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void deleteExpense(ex._id)}
+                          disabled={expenseSaving}
+                          className="text-xs text-rose-600 dark:text-rose-400 hover:underline disabled:opacity-50"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3 hidden sm:block overflow-x-auto max-h-[28rem] rounded-lg border border-zinc-200 dark:border-zinc-800">
+                  <table className="min-w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-zinc-600 dark:text-zinc-300 border-b border-zinc-200 dark:border-zinc-800">
+                        <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 px-3">Date</th>
+                        <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3">Description</th>
+                        <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3 text-right">Amount</th>
+                        <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3">Notes</th>
+                        <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3 w-36">Actions</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {expenses.map((ex, idx) => (
+                        <tr
+                          key={ex._id}
+                          className={[
+                            "border-b border-zinc-100 dark:border-zinc-900 hover:bg-zinc-50/70 dark:hover:bg-zinc-900/40",
+                            idx % 2 === 1 ? "bg-zinc-50/30 dark:bg-zinc-950/30" : "",
+                          ].join(" ")}
+                        >
+                          <td className="py-2 px-3 text-zinc-900 dark:text-zinc-100">
+                            {formatIsoDateToDDMMYYYY(ex.date ?? null) || "—"}
+                          </td>
+                          <td className="py-2 pr-3 text-zinc-900 dark:text-zinc-100">{ex.description}</td>
+                          <td className="py-2 pr-3 text-zinc-900 dark:text-zinc-100 text-right">{money(ex.amount)}</td>
+                          <td className="py-2 pr-3 text-zinc-700 dark:text-zinc-300">{ex.notes?.trim() || "—"}</td>
+                          <td className="py-2 pr-3 whitespace-nowrap">
+                            <button
+                              type="button"
+                              onClick={() => beginEditExpense(ex)}
+                              disabled={expenseSaving}
+                              className="text-xs text-sky-600 dark:text-sky-400 hover:underline mr-2 disabled:opacity-50"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void deleteExpense(ex._id)}
+                              disabled={expenseSaving}
+                              className="text-xs text-rose-600 dark:text-rose-400 hover:underline disabled:opacity-50"
+                            >
+                              Remove
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
           </div>
         </>
@@ -1460,12 +1605,12 @@ export default function ContributionsManager({ authorized }: { authorized: boole
         <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white/90 dark:bg-zinc-950/70 p-4 sm:p-5 space-y-4">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Activity log</h2>
-            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-200">
+            <label className="block w-full min-w-0 text-sm font-medium text-zinc-700 dark:text-zinc-200 sm:w-auto">
               Event type
               <select
                 value={logTypeFilter}
                 onChange={(e) => setLogTypeFilter(e.target.value)}
-                className="mt-1 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm min-w-[12rem]"
+                className="mt-1 w-full sm:w-auto sm:min-w-[12rem] rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm"
               >
                 <option value="all">All</option>
                 {CONTRIBUTION_LOG_EVENT_TYPES.map((t) => (
@@ -1486,64 +1631,99 @@ export default function ContributionsManager({ authorized }: { authorized: boole
           ) : logs.length === 0 ? (
             <p className="text-sm text-zinc-500 dark:text-zinc-400">No log entries yet.</p>
           ) : (
-            <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800 max-h-[32rem]">
-              <table className="min-w-full text-sm">
-                <thead>
-                  <tr className="text-left text-zinc-600 dark:text-zinc-300 border-b border-zinc-200 dark:border-zinc-800">
-                    <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 px-3 whitespace-nowrap">Time</th>
-                    <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3">Type</th>
-                    <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3">Summary</th>
-                    <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3 whitespace-nowrap">Device</th>
-                    <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3 w-24" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {logs.map((row, idx) => (
-                    <Fragment key={row._id}>
-                      <tr
-                        className={[
-                          "border-b border-zinc-100 dark:border-zinc-900",
-                          idx % 2 === 1 ? "bg-zinc-50/30 dark:bg-zinc-950/30" : "",
-                        ].join(" ")}
+            <>
+              <div className="space-y-2 sm:hidden max-h-[32rem] overflow-y-auto pr-1">
+                {logs.map((row) => (
+                  <div
+                    key={row._id}
+                    className="rounded-lg border border-zinc-200 dark:border-zinc-800 p-3 bg-white/80 dark:bg-zinc-950/50"
+                  >
+                    <div className="flex flex-col gap-1">
+                      <p className="text-xs font-mono text-zinc-800 dark:text-zinc-200 break-all">{row.eventType}</p>
+                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                        {formatIsoDateTimeToDisplay(row.timestamp)}
+                      </p>
+                    </div>
+                    <p className="mt-2 text-sm text-zinc-900 dark:text-zinc-100">{row.summary}</p>
+                    <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                      Device: <span className="font-mono">{shortDeviceId(row.deviceId)}</span>
+                    </p>
+                    {row.details?.trim() ? (
+                      <button
+                        type="button"
+                        onClick={() => setExpandedLogId((id) => (id === row._id ? null : row._id))}
+                        className="mt-2 text-xs text-sky-600 dark:text-sky-400 hover:underline"
                       >
-                        <td className="py-2 px-3 text-zinc-700 dark:text-zinc-300 whitespace-nowrap align-top">
-                          {formatIsoDateTimeToDisplay(row.timestamp)}
-                        </td>
-                        <td className="py-2 pr-3 text-zinc-900 dark:text-zinc-100 align-top font-mono text-xs">
-                          {row.eventType}
-                        </td>
-                        <td className="py-2 pr-3 text-zinc-800 dark:text-zinc-200 align-top">{row.summary}</td>
-                        <td className="py-2 pr-3 text-zinc-600 dark:text-zinc-400 align-top font-mono text-xs">
-                          {shortDeviceId(row.deviceId)}
-                        </td>
-                        <td className="py-2 pr-3 align-top">
-                          {row.details?.trim() ? (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setExpandedLogId((id) => (id === row._id ? null : row._id))
-                              }
-                              className="text-xs text-sky-600 dark:text-sky-400 hover:underline"
-                            >
-                              {expandedLogId === row._id ? "Hide" : "Details"}
-                            </button>
-                          ) : (
-                            <span className="text-xs text-zinc-400">—</span>
-                          )}
-                        </td>
-                      </tr>
-                      {expandedLogId === row._id && row.details?.trim() ? (
-                        <tr key={`${row._id}-details`} className="bg-zinc-50/80 dark:bg-zinc-900/50">
-                          <td colSpan={5} className="px-3 pb-3 pt-0 text-xs text-zinc-600 dark:text-zinc-400">
-                            <pre className="whitespace-pre-wrap break-words font-sans">{row.details}</pre>
+                        {expandedLogId === row._id ? "Hide details" : "Show details"}
+                      </button>
+                    ) : null}
+                    {expandedLogId === row._id && row.details?.trim() ? (
+                      <pre className="mt-2 whitespace-pre-wrap break-words text-xs text-zinc-600 dark:text-zinc-400 font-sans">
+                        {row.details}
+                      </pre>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+              <div className="hidden sm:block overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800 max-h-[32rem]">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-zinc-600 dark:text-zinc-300 border-b border-zinc-200 dark:border-zinc-800">
+                      <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 px-3 whitespace-nowrap">Time</th>
+                      <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3">Type</th>
+                      <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3">Summary</th>
+                      <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3 whitespace-nowrap">Device</th>
+                      <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3 w-24" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {logs.map((row, idx) => (
+                      <Fragment key={row._id}>
+                        <tr
+                          className={[
+                            "border-b border-zinc-100 dark:border-zinc-900",
+                            idx % 2 === 1 ? "bg-zinc-50/30 dark:bg-zinc-950/30" : "",
+                          ].join(" ")}
+                        >
+                          <td className="py-2 px-3 text-zinc-700 dark:text-zinc-300 whitespace-nowrap align-top">
+                            {formatIsoDateTimeToDisplay(row.timestamp)}
+                          </td>
+                          <td className="py-2 pr-3 text-zinc-900 dark:text-zinc-100 align-top font-mono text-xs">
+                            {row.eventType}
+                          </td>
+                          <td className="py-2 pr-3 text-zinc-800 dark:text-zinc-200 align-top">{row.summary}</td>
+                          <td className="py-2 pr-3 text-zinc-600 dark:text-zinc-400 align-top font-mono text-xs">
+                            {shortDeviceId(row.deviceId)}
+                          </td>
+                          <td className="py-2 pr-3 align-top">
+                            {row.details?.trim() ? (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setExpandedLogId((id) => (id === row._id ? null : row._id))
+                                }
+                                className="text-xs text-sky-600 dark:text-sky-400 hover:underline"
+                              >
+                                {expandedLogId === row._id ? "Hide" : "Details"}
+                              </button>
+                            ) : (
+                              <span className="text-xs text-zinc-400">—</span>
+                            )}
                           </td>
                         </tr>
-                      ) : null}
-                    </Fragment>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                        {expandedLogId === row._id && row.details?.trim() ? (
+                          <tr key={`${row._id}-details`} className="bg-zinc-50/80 dark:bg-zinc-900/50">
+                            <td colSpan={5} className="px-3 pb-3 pt-0 text-xs text-zinc-600 dark:text-zinc-400">
+                              <pre className="whitespace-pre-wrap break-words font-sans">{row.details}</pre>
+                            </td>
+                          </tr>
+                        ) : null}
+                      </Fragment>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
       )}
