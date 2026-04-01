@@ -1,10 +1,11 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { toPng } from "html-to-image";
 import { toast } from "sonner";
-import { formatIsoDateToDDMMYYYY, formatYearMonthToDDMMYYYY } from "@/src/lib/formatDate";
+import { CONTRIBUTION_LOG_EVENT_TYPES } from "@/src/lib/contributionLogConstants";
+import { formatIsoDateTimeToDisplay, formatIsoDateToDDMMYYYY, formatYearMonthToDDMMYYYY } from "@/src/lib/formatDate";
 
 type Member = {
   _id: string;
@@ -92,7 +93,22 @@ type ReportYtdPayload = {
 
 type ReportPayload = ReportMonthPayload | ReportYtdPayload;
 
-type ActiveTab = "overview" | "entry" | "expenses" | "settings";
+type ActiveTab = "overview" | "entry" | "expenses" | "settings" | "logs";
+
+type ContributionLogRow = {
+  _id: string;
+  timestamp: string;
+  eventType: string;
+  action: string;
+  entityType: string;
+  entityId?: string;
+  month?: string;
+  summary: string;
+  details?: string;
+  deviceId: string;
+  ip?: string;
+  userAgent?: string;
+};
 
 function currentMonth() {
   const now = new Date();
@@ -114,6 +130,11 @@ function formatGeneratedAt(iso: string): string {
   const hh = `${d.getHours()}`.padStart(2, "0");
   const min = `${d.getMinutes()}`.padStart(2, "0");
   return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
+}
+
+function shortDeviceId(id: string): string {
+  if (id.length <= 14) return id;
+  return `${id.slice(0, 6)}…${id.slice(-4)}`;
 }
 
 function statementStatusBadgeClass(status: DashboardStatus): string {
@@ -344,6 +365,12 @@ export default function ContributionsManager({ authorized }: { authorized: boole
   const [entryFormError, setEntryFormError] = useState<string | null>(null);
   const [expenseFormError, setExpenseFormError] = useState<string | null>(null);
 
+  const [logs, setLogs] = useState<ContributionLogRow[]>([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [logsError, setLogsError] = useState<string | null>(null);
+  const [logTypeFilter, setLogTypeFilter] = useState<string>("all");
+  const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
+
   async function loadData() {
     setLoading(true);
     setError(null);
@@ -421,6 +448,28 @@ export default function ContributionsManager({ authorized }: { authorized: boole
       toast.success(
         scope === "month" ? "Month statement downloaded" : "YTD statement downloaded"
       );
+
+      const ym =
+        data.scope === "ytd" && "toMonth" in data && typeof data.toMonth === "string"
+          ? data.toMonth.slice(0, 7)
+          : month;
+      try {
+        await fetch("/api/contributions/logs", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            eventType: scope === "month" ? "statement.download_month" : "statement.download_ytd",
+            summary:
+              scope === "month"
+                ? `Downloaded month statement PNG (${formatYearMonthToDDMMYYYY(month)})`
+                : `Downloaded YTD statement PNG (${data.periodLabel})`,
+            month: /^\d{4}-\d{2}$/.test(ym) ? ym : undefined,
+          }),
+        });
+      } catch {
+        /* non-blocking */
+      }
     } catch (e) {
       const message = e instanceof Error ? e.message : "PNG export failed";
       setError(message);
@@ -465,6 +514,35 @@ export default function ContributionsManager({ authorized }: { authorized: boole
     if (!isAuthed || activeTab !== "settings") return;
     void loadSettingsTab();
   }, [isAuthed, activeTab]);
+
+  async function loadLogs() {
+    setLogsLoading(true);
+    setLogsError(null);
+    try {
+      const res = await fetch(
+        `/api/contributions/logs?type=${encodeURIComponent(logTypeFilter)}&limit=100`,
+        { credentials: "include" }
+      );
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(body.error ?? "Failed to load logs");
+      }
+      const data = (await res.json()) as { logs?: ContributionLogRow[] };
+      setLogs(data.logs ?? []);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Failed to load logs";
+      setLogsError(message);
+      setLogs([]);
+    } finally {
+      setLogsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!isAuthed || activeTab !== "logs") return;
+    void loadLogs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refetch when filter or tab changes
+  }, [isAuthed, activeTab, logTypeFilter]);
 
   const selectedMember = useMemo(
     () => members.find((m) => m._id === memberId) ?? null,
@@ -868,6 +946,7 @@ export default function ContributionsManager({ authorized }: { authorized: boole
               ["entry", "Add Entry"],
               ["expenses", "Expenses"],
               ["settings", "Settings"],
+              ["logs", "Logs"],
             ] as const
           ).map(([id, label]) => (
             <button
@@ -1375,6 +1454,98 @@ export default function ContributionsManager({ authorized }: { authorized: boole
             )}
           </div>
         </>
+      )}
+
+      {activeTab === "logs" && (
+        <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white/90 dark:bg-zinc-950/70 p-4 sm:p-5 space-y-4">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Activity log</h2>
+            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-200">
+              Event type
+              <select
+                value={logTypeFilter}
+                onChange={(e) => setLogTypeFilter(e.target.value)}
+                className="mt-1 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm min-w-[12rem]"
+              >
+                <option value="all">All</option>
+                {CONTRIBUTION_LOG_EVENT_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            Recent actions (newest first). Device IDs are anonymized labels stored in a cookie for this browser.
+          </p>
+          {logsLoading ? (
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">Loading…</p>
+          ) : logsError ? (
+            <p className="text-sm text-rose-600 dark:text-rose-400">{logsError}</p>
+          ) : logs.length === 0 ? (
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">No log entries yet.</p>
+          ) : (
+            <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800 max-h-[32rem]">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr className="text-left text-zinc-600 dark:text-zinc-300 border-b border-zinc-200 dark:border-zinc-800">
+                    <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 px-3 whitespace-nowrap">Time</th>
+                    <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3">Type</th>
+                    <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3">Summary</th>
+                    <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3 whitespace-nowrap">Device</th>
+                    <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3 w-24" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {logs.map((row, idx) => (
+                    <Fragment key={row._id}>
+                      <tr
+                        className={[
+                          "border-b border-zinc-100 dark:border-zinc-900",
+                          idx % 2 === 1 ? "bg-zinc-50/30 dark:bg-zinc-950/30" : "",
+                        ].join(" ")}
+                      >
+                        <td className="py-2 px-3 text-zinc-700 dark:text-zinc-300 whitespace-nowrap align-top">
+                          {formatIsoDateTimeToDisplay(row.timestamp)}
+                        </td>
+                        <td className="py-2 pr-3 text-zinc-900 dark:text-zinc-100 align-top font-mono text-xs">
+                          {row.eventType}
+                        </td>
+                        <td className="py-2 pr-3 text-zinc-800 dark:text-zinc-200 align-top">{row.summary}</td>
+                        <td className="py-2 pr-3 text-zinc-600 dark:text-zinc-400 align-top font-mono text-xs">
+                          {shortDeviceId(row.deviceId)}
+                        </td>
+                        <td className="py-2 pr-3 align-top">
+                          {row.details?.trim() ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setExpandedLogId((id) => (id === row._id ? null : row._id))
+                              }
+                              className="text-xs text-sky-600 dark:text-sky-400 hover:underline"
+                            >
+                              {expandedLogId === row._id ? "Hide" : "Details"}
+                            </button>
+                          ) : (
+                            <span className="text-xs text-zinc-400">—</span>
+                          )}
+                        </td>
+                      </tr>
+                      {expandedLogId === row._id && row.details?.trim() ? (
+                        <tr key={`${row._id}-details`} className="bg-zinc-50/80 dark:bg-zinc-900/50">
+                          <td colSpan={5} className="px-3 pb-3 pt-0 text-xs text-zinc-600 dark:text-zinc-400">
+                            <pre className="whitespace-pre-wrap break-words font-sans">{row.details}</pre>
+                          </td>
+                        </tr>
+                      ) : null}
+                    </Fragment>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       )}
 
       {activeTab === "settings" && (

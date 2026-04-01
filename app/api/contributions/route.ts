@@ -7,6 +7,12 @@ import {
   resolveTargetsForMonth,
   type TargetHistoryRow,
 } from "@/src/lib/sanity/contributionTargets";
+import {
+  applyDeviceCookieToResponse,
+  extractRequestMeta,
+  getDeviceIdForRequest,
+  writeContributionLogSafe,
+} from "@/src/lib/sanity/contributionLogs";
 import { getSanityWriteClient } from "@/src/lib/sanity/sanityWriteClient";
 
 type ContributionRecord = {
@@ -217,6 +223,8 @@ export async function POST(req: Request) {
     const notes = typeof body.notes === "string" ? body.notes : null;
 
     const client = getSanityWriteClient();
+    const { deviceId, needsNewCookie } = getDeviceIdForRequest(req);
+    const meta = extractRequestMeta(req);
     const existing = await client.fetch<Array<{ _id: string }>>(
       `*[_type == "contribution" && member._ref == $memberId && month == $month][0...1]{ _id }`,
       { memberId: body.memberId, month }
@@ -231,16 +239,37 @@ export async function POST(req: Request) {
       notes,
     };
 
-    if (existing.length > 0) {
-      await client.patch(existing[0]._id).set(patch).commit();
+    let contributionId: string;
+    const isUpdate = existing.length > 0;
+    if (isUpdate) {
+      contributionId = existing[0]._id;
+      await client.patch(contributionId).set(patch).commit();
     } else {
-      await client.create({
+      const created = await client.create({
         _type: "contribution",
         ...patch,
       });
+      contributionId = created._id;
     }
 
-    return NextResponse.json({ ok: true }, { status: 200 });
+    const memberName = await client.fetch<string | null>(
+      `*[_type == "musician" && _id == $id][0].name`,
+      { id: body.memberId }
+    );
+    await writeContributionLogSafe(client, {
+      eventType: isUpdate ? "contribution.update" : "contribution.create",
+      action: isUpdate ? "update" : "create",
+      entityType: "contribution",
+      entityId: contributionId,
+      month,
+      summary: `${isUpdate ? "Updated" : "Created"} contribution R${amount.toFixed(2)} for ${memberName ?? body.memberId} (${month.slice(0, 7)})`,
+      deviceId,
+      ...meta,
+    });
+
+    const res = NextResponse.json({ ok: true }, { status: 200 });
+    if (needsNewCookie) applyDeviceCookieToResponse(res, deviceId);
+    return res;
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 500 });
@@ -334,7 +363,26 @@ export async function PATCH(req: Request) {
       })
       .commit();
 
-    return NextResponse.json({ ok: true }, { status: 200 });
+    const { deviceId, needsNewCookie } = getDeviceIdForRequest(req);
+    const meta = extractRequestMeta(req);
+    const memberName = await client.fetch<string | null>(
+      `*[_type == "musician" && _id == $mid][0].name`,
+      { mid: memberId }
+    );
+    await writeContributionLogSafe(client, {
+      eventType: "contribution.update",
+      action: "update",
+      entityType: "contribution",
+      entityId: id,
+      month,
+      summary: `Updated contribution R${amount.toFixed(2)} for ${memberName ?? memberId} (${month.slice(0, 7)})`,
+      deviceId,
+      ...meta,
+    });
+
+    const res = NextResponse.json({ ok: true }, { status: 200 });
+    if (needsNewCookie) applyDeviceCookieToResponse(res, deviceId);
+    return res;
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 500 });
@@ -354,16 +402,43 @@ export async function DELETE(req: Request) {
     }
 
     const client = getSanityWriteClient();
-    const existing = await client.fetch<{ _id: string } | null>(
-      `*[_type == "contribution" && _id == $id][0]{ _id }`,
+    const existing = await client.fetch<{
+      _id: string;
+      month?: string;
+      amount?: number;
+      member?: { _ref?: string } | null;
+    } | null>(
+      `*[_type == "contribution" && _id == $id][0]{ _id, month, amount, member }`,
       { id }
     );
     if (!existing) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
+    const memberRef = existing.member?._ref;
+    const memberName =
+      memberRef &&
+      (await client.fetch<string | null>(`*[_type == "musician" && _id == $mid][0].name`, { mid: memberRef }));
+    const amt = typeof existing.amount === "number" ? existing.amount : 0;
+
     await client.delete(id);
-    return NextResponse.json({ ok: true }, { status: 200 });
+
+    const { deviceId, needsNewCookie } = getDeviceIdForRequest(req);
+    const meta = extractRequestMeta(req);
+    await writeContributionLogSafe(client, {
+      eventType: "contribution.delete",
+      action: "delete",
+      entityType: "contribution",
+      entityId: id,
+      month: existing.month,
+      summary: `Deleted contribution R${amt.toFixed(2)} for ${memberName ?? memberRef ?? "member"} (${(existing.month ?? "").slice(0, 7) || "?"})`,
+      deviceId,
+      ...meta,
+    });
+
+    const res = NextResponse.json({ ok: true }, { status: 200 });
+    if (needsNewCookie) applyDeviceCookieToResponse(res, deviceId);
+    return res;
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 500 });

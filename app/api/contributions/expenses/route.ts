@@ -3,6 +3,12 @@ import {
   getContribAuthCookieName,
   isContribSessionValidFromCookie,
 } from "@/src/lib/sanity/contributionsAuth";
+import {
+  applyDeviceCookieToResponse,
+  extractRequestMeta,
+  getDeviceIdForRequest,
+  writeContributionLogSafe,
+} from "@/src/lib/sanity/contributionLogs";
 import { getSanityWriteClient } from "@/src/lib/sanity/sanityWriteClient";
 
 async function isAuthorized(req: Request): Promise<boolean> {
@@ -55,6 +61,8 @@ export async function POST(req: Request) {
     }
 
     const client = getSanityWriteClient();
+    const { deviceId, needsNewCookie } = getDeviceIdForRequest(req);
+    const meta = extractRequestMeta(req);
     const created = await client.create({
       _type: "contributionExpense",
       date: body.date,
@@ -64,7 +72,20 @@ export async function POST(req: Request) {
       notes: typeof body.notes === "string" && body.notes.trim() ? body.notes.trim() : undefined,
     });
 
-    return NextResponse.json({ ok: true, id: created._id }, { status: 200 });
+    await writeContributionLogSafe(client, {
+      eventType: "expense.create",
+      action: "create",
+      entityType: "expense",
+      entityId: created._id,
+      month,
+      summary: `Created expense R${amount.toFixed(2)} — ${body.description.trim()}`,
+      deviceId,
+      ...meta,
+    });
+
+    const res = NextResponse.json({ ok: true, id: created._id }, { status: 200 });
+    if (needsNewCookie) applyDeviceCookieToResponse(res, deviceId);
+    return res;
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 500 });
@@ -148,7 +169,22 @@ export async function PATCH(req: Request) {
 
     await patchBuilder.commit();
 
-    return NextResponse.json({ ok: true }, { status: 200 });
+    const { deviceId, needsNewCookie } = getDeviceIdForRequest(req);
+    const meta = extractRequestMeta(req);
+    await writeContributionLogSafe(client, {
+      eventType: "expense.update",
+      action: "update",
+      entityType: "expense",
+      entityId: id,
+      month,
+      summary: `Updated expense R${amount.toFixed(2)} — ${description}`,
+      deviceId,
+      ...meta,
+    });
+
+    const res = NextResponse.json({ ok: true }, { status: 200 });
+    if (needsNewCookie) applyDeviceCookieToResponse(res, deviceId);
+    return res;
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 500 });
@@ -168,8 +204,38 @@ export async function DELETE(req: Request) {
     }
 
     const client = getSanityWriteClient();
+    const existing = await client.fetch<{
+      _id: string;
+      month?: string;
+      amount?: number;
+      description?: string;
+    } | null>(
+      `*[_type == "contributionExpense" && _id == $id][0]{ _id, month, amount, description }`,
+      { id }
+    );
+    if (!existing) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
     await client.delete(id);
-    return NextResponse.json({ ok: true }, { status: 200 });
+
+    const { deviceId, needsNewCookie } = getDeviceIdForRequest(req);
+    const meta = extractRequestMeta(req);
+    const amt = typeof existing.amount === "number" ? existing.amount : 0;
+    await writeContributionLogSafe(client, {
+      eventType: "expense.delete",
+      action: "delete",
+      entityType: "expense",
+      entityId: id,
+      month: existing.month,
+      summary: `Deleted expense R${amt.toFixed(2)} — ${existing.description ?? id}`,
+      deviceId,
+      ...meta,
+    });
+
+    const res = NextResponse.json({ ok: true }, { status: 200 });
+    if (needsNewCookie) applyDeviceCookieToResponse(res, deviceId);
+    return res;
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 500 });

@@ -9,6 +9,12 @@ import {
   DEFAULT_NON_COMMITTEE_TARGET,
   type TargetHistoryRow,
 } from "@/src/lib/sanity/contributionTargets";
+import {
+  applyDeviceCookieToResponse,
+  extractRequestMeta,
+  getDeviceIdForRequest,
+  writeContributionLogSafe,
+} from "@/src/lib/sanity/contributionLogs";
 import { getSanityWriteClient } from "@/src/lib/sanity/sanityWriteClient";
 
 async function isAuthorized(req: Request): Promise<boolean> {
@@ -129,7 +135,21 @@ export async function POST(req: Request) {
       })
       .commit();
 
-    return NextResponse.json({ ok: true }, { status: 200 });
+    const { deviceId, needsNewCookie } = getDeviceIdForRequest(req);
+    const meta = extractRequestMeta(req);
+    await writeContributionLogSafe(client, {
+      eventType: "settings.update",
+      action: "update",
+      entityType: "settings",
+      entityId: doc._id,
+      summary: `Updated monthly targets: non-committee R${non.toFixed(2)}, committee R${com.toFixed(2)} (effective ${effectiveFrom})`,
+      deviceId,
+      ...meta,
+    });
+
+    const res = NextResponse.json({ ok: true }, { status: 200 });
+    if (needsNewCookie) applyDeviceCookieToResponse(res, deviceId);
+    return res;
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 500 });

@@ -6,7 +6,8 @@ import { rehearsal } from './rehearsal'
 import { contribution } from './contribution'
 import { contributionAccess } from './contributionAccess'
 import { contributionExpense } from './contributionExpense'
+import { contributionLog } from './contributionLog'
 
 export const schema: { types: SchemaTypeDefinition[] } = {
-  types: [musician, service, rehearsal, contribution, contributionAccess, contributionExpense],
+  types: [musician, service, rehearsal, contribution, contributionAccess, contributionExpense, contributionLog],
 }
