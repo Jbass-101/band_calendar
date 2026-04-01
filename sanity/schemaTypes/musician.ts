@@ -6,6 +6,7 @@ const ROLE_OPTIONS = [
   { title: "Tenor", value: "Tenor" },
   { title: "Alto", value: "Alto" },
   { title: "Soprano", value: "Soprano" },
+  { title: "Committee Member", value: "Committee Member" },
   { title: "Lead Keyboard", value: "Lead Keyboard" },
   { title: "Aux Keyboard", value: "Aux Keyboard" },
   { title: "Lead Guitar", value: "Lead Guitar" },
