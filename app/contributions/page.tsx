@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import ContributionsManager from "@/src/components/ContributionsManager";
 import {
@@ -6,6 +7,38 @@ import {
 } from "@/src/lib/sanity/contributionsAuth";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Choir contributions",
+  description:
+    "Track monthly choir contributions by member: overview, entries, expenses, and statements.",
+  alternates: {
+    canonical: "/contributions",
+  },
+  openGraph: {
+    title: "Choir contributions | Last Harvest Mission",
+    description:
+      "Track monthly choir contributions by member: overview, entries, expenses, and statements.",
+    url: "/contributions",
+    siteName: "Last Harvest Mission",
+    type: "website",
+    images: [
+      {
+        url: "/contributions-logo.png",
+        width: 512,
+        height: 512,
+        alt: "Last Harvest Mission",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Choir contributions | Last Harvest Mission",
+    description:
+      "Track monthly choir contributions by member: overview, entries, expenses, and statements.",
+    images: ["/contributions-logo.png"],
+  },
+};
 
 export default async function ContributionsPage() {
   const cookieStore = await cookies();
