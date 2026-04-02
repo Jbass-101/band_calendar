@@ -6,8 +6,8 @@ import { toPng } from "html-to-image";
 import { Drum, Guitar, Mic, Piano, Shirt, type LucideIcon } from "lucide-react";
 import type { Service } from "@/src/lib/sanity/client";
 
-/** Simple dress / pants silhouettes (not in lucide-react 1.x). Match Lucide stroke style. */
-function UniformDressIcon({ className }: { className?: string }) {
+/** Man / woman pictograms (human figures — not Mars/Venus symbols). Match Lucide stroke style. */
+function WomanFigureIcon({ className }: { className?: string }) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -16,8 +16,9 @@ function UniformDressIcon({ className }: { className?: string }) {
       className={className}
       aria-hidden
     >
+      <circle cx="12" cy="5.5" r="2.5" fill="none" stroke="currentColor" strokeWidth="2" />
       <path
-        d="M12 4a2 2 0 0 1 2 2v1.5h2.2l2.3 5.2-1 10.3H6.5L5.5 12.7l2.3-5.2H10V6a2 2 0 0 1 2-2Z"
+        d="M12 8v1.5M9 10h6l2 4-1 8H7l-1-8 2-4z"
         stroke="currentColor"
         strokeWidth="2"
         strokeLinecap="round"
@@ -27,7 +28,7 @@ function UniformDressIcon({ className }: { className?: string }) {
   );
 }
 
-function UniformPantsIcon({ className }: { className?: string }) {
+function ManFigureIcon({ className }: { className?: string }) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -36,8 +37,9 @@ function UniformPantsIcon({ className }: { className?: string }) {
       className={className}
       aria-hidden
     >
+      <circle cx="12" cy="5.5" r="2.5" fill="none" stroke="currentColor" strokeWidth="2" />
       <path
-        d="M9 4h6v2l-.4 2.2H9.4L9 6V4Zm-.7 8.2h7.4l-.9 11.8h-2.1l-.8-6-.8 6H8.6L7.3 12.2Z"
+        d="M12 8v3M9 10h6M9 10 8 21M15 10 16 21"
         stroke="currentColor"
         strokeWidth="2"
         strokeLinecap="round"
@@ -416,7 +418,7 @@ export default function BandCalendarMonth() {
                 uniformTab === "women" ? tabButtonActive : tabButtonInactive,
               ].join(" ")}
             >
-              <UniformDressIcon className="h-4 w-4" />
+              <WomanFigureIcon className="h-4 w-4" />
               Women
             </button>
             <button
@@ -429,7 +431,7 @@ export default function BandCalendarMonth() {
                 uniformTab === "men" ? tabButtonActive : tabButtonInactive,
               ].join(" ")}
             >
-              <UniformPantsIcon className="h-4 w-4" />
+              <ManFigureIcon className="h-4 w-4" />
               Men
             </button>
           </div>
@@ -514,14 +516,14 @@ export default function BandCalendarMonth() {
                       {svc.uniformWomen && svc.uniformMen ? (
                         <div className="space-y-1">
                           <div className="inline-flex min-w-0 items-center gap-1.5">
-                            <UniformDressIcon className="h-3.5 w-3.5 shrink-0 text-zinc-600 dark:text-zinc-300" />
+                            <WomanFigureIcon className="h-3.5 w-3.5 shrink-0 text-zinc-600 dark:text-zinc-300" />
                             <span className="text-[11px] font-medium shrink-0 text-zinc-600 dark:text-zinc-300">:</span>
                             <span className="text-[11px] truncate block min-w-0 text-zinc-700 dark:text-zinc-200">
                               {svc.uniformWomen}
                             </span>
                           </div>
                           <div className="inline-flex min-w-0 items-center gap-1.5">
-                            <UniformPantsIcon className="h-3.5 w-3.5 shrink-0 text-zinc-600 dark:text-zinc-300" />
+                            <ManFigureIcon className="h-3.5 w-3.5 shrink-0 text-zinc-600 dark:text-zinc-300" />
                             <span className="text-[11px] font-medium shrink-0 text-zinc-600 dark:text-zinc-300">:</span>
                             <span className="text-[11px] truncate block min-w-0 text-zinc-700 dark:text-zinc-200">
                               {svc.uniformMen}
@@ -649,14 +651,14 @@ export default function BandCalendarMonth() {
                           {svc.uniformWomen && svc.uniformMen ? (
                             <div className="space-y-1">
                               <div className="inline-flex min-w-0 items-center gap-1.5">
-                                <UniformDressIcon className="h-3.5 w-3.5 shrink-0 text-zinc-700" />
+                                <WomanFigureIcon className="h-3.5 w-3.5 shrink-0 text-zinc-700" />
                                 <span className="text-[11px] font-semibold shrink-0 text-zinc-700">:</span>
                                 <span className="text-[11px] truncate block min-w-0 text-zinc-800">
                                   {svc.uniformWomen}
                                 </span>
                               </div>
                               <div className="inline-flex min-w-0 items-center gap-1.5">
-                                <UniformPantsIcon className="h-3.5 w-3.5 shrink-0 text-zinc-700" />
+                                <ManFigureIcon className="h-3.5 w-3.5 shrink-0 text-zinc-700" />
                                 <span className="text-[11px] font-semibold shrink-0 text-zinc-700">:</span>
                                 <span className="text-[11px] truncate block min-w-0 text-zinc-800">
                                   {svc.uniformMen}
