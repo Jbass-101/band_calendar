@@ -3,8 +3,49 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { toPng } from "html-to-image";
-import { Drum, Guitar, Mic, Piano, Shirt, Venus, Mars, type LucideIcon } from "lucide-react";
+import { Drum, Guitar, Mic, Piano, Shirt, type LucideIcon } from "lucide-react";
 import type { Service } from "@/src/lib/sanity/client";
+
+/** Simple dress / pants silhouettes (not in lucide-react 1.x). Match Lucide stroke style. */
+function UniformDressIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      aria-hidden
+    >
+      <path
+        d="M12 4a2 2 0 0 1 2 2v1.5h2.2l2.3 5.2-1 10.3H6.5L5.5 12.7l2.3-5.2H10V6a2 2 0 0 1 2-2Z"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function UniformPantsIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      aria-hidden
+    >
+      <path
+        d="M9 4h6v2l-.4 2.2H9.4L9 6V4Zm-.7 8.2h7.4l-.9 11.8h-2.1l-.8-6-.8 6H8.6L7.3 12.2Z"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
 
 const ROLE_ORDER = [
   "Lead Vocal",
@@ -375,7 +416,7 @@ export default function BandCalendarMonth() {
                 uniformTab === "women" ? tabButtonActive : tabButtonInactive,
               ].join(" ")}
             >
-              <Venus className="h-4 w-4" aria-hidden />
+              <UniformDressIcon className="h-4 w-4" />
               Women
             </button>
             <button
@@ -388,7 +429,7 @@ export default function BandCalendarMonth() {
                 uniformTab === "men" ? tabButtonActive : tabButtonInactive,
               ].join(" ")}
             >
-              <Mars className="h-4 w-4" aria-hidden />
+              <UniformPantsIcon className="h-4 w-4" />
               Men
             </button>
           </div>
@@ -473,20 +514,14 @@ export default function BandCalendarMonth() {
                       {svc.uniformWomen && svc.uniformMen ? (
                         <div className="space-y-1">
                           <div className="inline-flex min-w-0 items-center gap-1.5">
-                            <Venus
-                              className="h-3.5 w-3.5 shrink-0 text-zinc-600 dark:text-zinc-300"
-                              aria-hidden
-                            />
+                            <UniformDressIcon className="h-3.5 w-3.5 shrink-0 text-zinc-600 dark:text-zinc-300" />
                             <span className="text-[11px] font-medium shrink-0 text-zinc-600 dark:text-zinc-300">:</span>
                             <span className="text-[11px] truncate block min-w-0 text-zinc-700 dark:text-zinc-200">
                               {svc.uniformWomen}
                             </span>
                           </div>
                           <div className="inline-flex min-w-0 items-center gap-1.5">
-                            <Mars
-                              className="h-3.5 w-3.5 shrink-0 text-zinc-600 dark:text-zinc-300"
-                              aria-hidden
-                            />
+                            <UniformPantsIcon className="h-3.5 w-3.5 shrink-0 text-zinc-600 dark:text-zinc-300" />
                             <span className="text-[11px] font-medium shrink-0 text-zinc-600 dark:text-zinc-300">:</span>
                             <span className="text-[11px] truncate block min-w-0 text-zinc-700 dark:text-zinc-200">
                               {svc.uniformMen}
@@ -614,14 +649,14 @@ export default function BandCalendarMonth() {
                           {svc.uniformWomen && svc.uniformMen ? (
                             <div className="space-y-1">
                               <div className="inline-flex min-w-0 items-center gap-1.5">
-                                <Venus className="h-3.5 w-3.5 shrink-0 text-zinc-700" aria-hidden />
+                                <UniformDressIcon className="h-3.5 w-3.5 shrink-0 text-zinc-700" />
                                 <span className="text-[11px] font-semibold shrink-0 text-zinc-700">:</span>
                                 <span className="text-[11px] truncate block min-w-0 text-zinc-800">
                                   {svc.uniformWomen}
                                 </span>
                               </div>
                               <div className="inline-flex min-w-0 items-center gap-1.5">
-                                <Mars className="h-3.5 w-3.5 shrink-0 text-zinc-700" aria-hidden />
+                                <UniformPantsIcon className="h-3.5 w-3.5 shrink-0 text-zinc-700" />
                                 <span className="text-[11px] font-semibold shrink-0 text-zinc-700">:</span>
                                 <span className="text-[11px] truncate block min-w-0 text-zinc-800">
                                   {svc.uniformMen}
