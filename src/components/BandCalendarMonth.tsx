@@ -528,16 +528,53 @@ export default function BandCalendarMonth() {
             className="w-full bg-white text-zinc-900 p-6"
             style={{ maxWidth: 900 }}
           >
-            <div className="mb-4 flex items-center gap-2.5">
-              <Image
-                src="/logo.png"
-                alt=""
-                width={32}
-                height={32}
-                className="w-8 h-8 object-contain select-none"
-                unoptimized
-              />
-              <div className="text-2xl font-bold">{monthYearLabel}</div>
+            <header className="mb-5 flex flex-nowrap items-start gap-4 border-b border-zinc-200 pb-5">
+              <div className="shrink-0">
+                <Image
+                  src="/logo.png"
+                  alt=""
+                  width={160}
+                  height={160}
+                  className="h-24 w-24 object-contain select-none"
+                  unoptimized
+                />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h1 className="text-left text-2xl font-semibold tracking-tight text-zinc-900">
+                  Last Harvest Instrumentalists
+                </h1>
+                <p className="mt-1 text-left text-sm text-zinc-600">
+                  Monthly schedule for services and rehearsals
+                </p>
+              </div>
+            </header>
+
+            <div className="mb-3">
+              <div className="text-[11px] uppercase tracking-wide text-zinc-500">Schedule month</div>
+              <div className="text-2xl font-semibold tracking-tight text-zinc-900">{monthYearLabel}</div>
+            </div>
+
+            <div
+              className="mb-4 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2.5"
+              aria-label="Uniform symbol legend"
+            >
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500 mb-2">
+                Uniform legend
+              </div>
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[12px] text-zinc-800">
+                <span className="inline-flex items-center gap-1.5">
+                  <Venus className="h-4 w-4 shrink-0 text-zinc-700" aria-hidden />
+                  <span>Women uniform</span>
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <Mars className="h-4 w-4 shrink-0 text-zinc-700" aria-hidden />
+                  <span>Men uniform</span>
+                </span>
+                <span className="inline-flex items-center gap-1.5 text-zinc-600">
+                  <Shirt className="h-4 w-4 shrink-0" aria-hidden />
+                  <span>Single dress code (when not split)</span>
+                </span>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 pb-1">
