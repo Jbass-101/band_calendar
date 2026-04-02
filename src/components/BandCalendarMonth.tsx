@@ -3,51 +3,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { toPng } from "html-to-image";
-import { Drum, Guitar, Mic, Piano, Shirt, type LucideIcon } from "lucide-react";
+import {
+  Drum,
+  Guitar,
+  Mic,
+  Piano,
+  Shirt,
+  User,
+  UserRound,
+  type LucideIcon,
+} from "lucide-react";
 import type { Service } from "@/src/lib/sanity/client";
-
-/** Man / woman pictograms (human figures — not Mars/Venus symbols). Match Lucide stroke style. */
-function WomanFigureIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className={className}
-      aria-hidden
-    >
-      <circle cx="12" cy="5.5" r="2.5" fill="none" stroke="currentColor" strokeWidth="2" />
-      <path
-        d="M12 8v1.5M9 10h6l2 4-1 8H7l-1-8 2-4z"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function ManFigureIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className={className}
-      aria-hidden
-    >
-      <circle cx="12" cy="5.5" r="2.5" fill="none" stroke="currentColor" strokeWidth="2" />
-      <path
-        d="M12 8v3M9 10h6M9 10 8 21M15 10 16 21"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
 
 const ROLE_ORDER = [
   "Lead Vocal",
@@ -418,7 +384,7 @@ export default function BandCalendarMonth() {
                 uniformTab === "women" ? tabButtonActive : tabButtonInactive,
               ].join(" ")}
             >
-              <WomanFigureIcon className="h-4 w-4" />
+              <UserRound className="h-4 w-4 shrink-0" aria-hidden />
               Women
             </button>
             <button
@@ -431,7 +397,7 @@ export default function BandCalendarMonth() {
                 uniformTab === "men" ? tabButtonActive : tabButtonInactive,
               ].join(" ")}
             >
-              <ManFigureIcon className="h-4 w-4" />
+              <User className="h-4 w-4 shrink-0" aria-hidden />
               Men
             </button>
           </div>
@@ -516,14 +482,14 @@ export default function BandCalendarMonth() {
                       {svc.uniformWomen && svc.uniformMen ? (
                         <div className="space-y-1">
                           <div className="inline-flex min-w-0 items-center gap-1.5">
-                            <WomanFigureIcon className="h-3.5 w-3.5 shrink-0 text-zinc-600 dark:text-zinc-300" />
+                            <UserRound className="h-3.5 w-3.5 shrink-0 text-zinc-600 dark:text-zinc-300" aria-hidden />
                             <span className="text-[11px] font-medium shrink-0 text-zinc-600 dark:text-zinc-300">:</span>
                             <span className="text-[11px] truncate block min-w-0 text-zinc-700 dark:text-zinc-200">
                               {svc.uniformWomen}
                             </span>
                           </div>
                           <div className="inline-flex min-w-0 items-center gap-1.5">
-                            <ManFigureIcon className="h-3.5 w-3.5 shrink-0 text-zinc-600 dark:text-zinc-300" />
+                            <User className="h-3.5 w-3.5 shrink-0 text-zinc-600 dark:text-zinc-300" aria-hidden />
                             <span className="text-[11px] font-medium shrink-0 text-zinc-600 dark:text-zinc-300">:</span>
                             <span className="text-[11px] truncate block min-w-0 text-zinc-700 dark:text-zinc-200">
                               {svc.uniformMen}
@@ -651,14 +617,14 @@ export default function BandCalendarMonth() {
                           {svc.uniformWomen && svc.uniformMen ? (
                             <div className="space-y-1">
                               <div className="inline-flex min-w-0 items-center gap-1.5">
-                                <WomanFigureIcon className="h-3.5 w-3.5 shrink-0 text-zinc-700" />
+                                <UserRound className="h-3.5 w-3.5 shrink-0 text-zinc-700" aria-hidden />
                                 <span className="text-[11px] font-semibold shrink-0 text-zinc-700">:</span>
                                 <span className="text-[11px] truncate block min-w-0 text-zinc-800">
                                   {svc.uniformWomen}
                                 </span>
                               </div>
                               <div className="inline-flex min-w-0 items-center gap-1.5">
-                                <ManFigureIcon className="h-3.5 w-3.5 shrink-0 text-zinc-700" />
+                                <User className="h-3.5 w-3.5 shrink-0 text-zinc-700" aria-hidden />
                                 <span className="text-[11px] font-semibold shrink-0 text-zinc-700">:</span>
                                 <span className="text-[11px] truncate block min-w-0 text-zinc-800">
                                   {svc.uniformMen}
