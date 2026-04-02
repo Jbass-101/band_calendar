@@ -8,8 +8,9 @@ export type MusicianAssignment = {
 export type Service = {
   date: string; // "YYYY-MM-DD"
   title: string;
-  uniformWomen: string;
-  uniformMen: string;
+  uniform: string;
+  uniformWomen: string | null;
+  uniformMen: string | null;
   assignments: MusicianAssignment[];
 };
 
@@ -107,8 +108,9 @@ export async function fetchServicesForRange(
   return raw.map((s) => ({
     date: s.date,
     title: s.title,
-    uniformWomen: normalizeUniformValue(s.uniformWomen) ?? normalizeUniformValue(s.uniform) ?? "Smart Casual",
-    uniformMen: normalizeUniformValue(s.uniformMen) ?? normalizeUniformValue(s.uniform) ?? "Smart Casual",
+    uniform: normalizeUniformValue(s.uniform) ?? "Smart Casual",
+    uniformWomen: normalizeUniformValue(s.uniformWomen),
+    uniformMen: normalizeUniformValue(s.uniformMen),
     assignments: [
       { role: "Lead Vocal", musicianNames: normalizeNames(s.leadVocalNames) },
       { role: "Lead Keyboard", musicianNames: normalizeNames(s.leadKeyboardNames) },

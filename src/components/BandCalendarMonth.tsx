@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { toPng } from "html-to-image";
-import { Drum, Guitar, Mic, Piano, Venus, Mars, type LucideIcon } from "lucide-react";
+import { Drum, Guitar, Mic, Piano, Shirt, Venus, Mars, type LucideIcon } from "lucide-react";
 import type { Service } from "@/src/lib/sanity/client";
 
 const ROLE_ORDER = [
@@ -223,8 +223,6 @@ export default function BandCalendarMonth() {
     // YYYY-MM-DD string sort is chronological.
     return keys.sort();
   }, [grid, serviceByDate, rehearsalDates]);
-
-  const GenderIcon = uniformTab === "women" ? Venus : Mars;
 
   const handleDownloadPng = async () => {
     try {
@@ -472,13 +470,38 @@ export default function BandCalendarMonth() {
                     </div>
 
                     <div className="mt-2 border-t border-zinc-200/80 dark:border-zinc-800/80 pt-2">
-                      <div className="inline-flex min-w-0 items-center gap-1.5">
-                        <GenderIcon className="h-3.5 w-3.5 shrink-0 text-zinc-600 dark:text-zinc-300" aria-hidden />
-                        <span className="text-[11px] font-medium shrink-0 text-zinc-600 dark:text-zinc-300">:</span>
-                        <span className="text-[11px] truncate block min-w-0 text-zinc-700 dark:text-zinc-200">
-                          {uniformTab === "women" ? svc.uniformWomen : svc.uniformMen}
-                        </span>
-                      </div>
+                      {svc.uniformWomen && svc.uniformMen ? (
+                        <div className="space-y-1">
+                          <div className="inline-flex min-w-0 items-center gap-1.5">
+                            <Venus
+                              className="h-3.5 w-3.5 shrink-0 text-zinc-600 dark:text-zinc-300"
+                              aria-hidden
+                            />
+                            <span className="text-[11px] font-medium shrink-0 text-zinc-600 dark:text-zinc-300">:</span>
+                            <span className="text-[11px] truncate block min-w-0 text-zinc-700 dark:text-zinc-200">
+                              {svc.uniformWomen}
+                            </span>
+                          </div>
+                          <div className="inline-flex min-w-0 items-center gap-1.5">
+                            <Mars
+                              className="h-3.5 w-3.5 shrink-0 text-zinc-600 dark:text-zinc-300"
+                              aria-hidden
+                            />
+                            <span className="text-[11px] font-medium shrink-0 text-zinc-600 dark:text-zinc-300">:</span>
+                            <span className="text-[11px] truncate block min-w-0 text-zinc-700 dark:text-zinc-200">
+                              {svc.uniformMen}
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="inline-flex min-w-0 items-center gap-1.5">
+                          <Shirt className="h-3.5 w-3.5 shrink-0 text-zinc-600 dark:text-zinc-300" aria-hidden />
+                          <span className="text-[11px] font-medium shrink-0 text-zinc-600 dark:text-zinc-300">:</span>
+                          <span className="text-[11px] truncate block min-w-0 text-zinc-700 dark:text-zinc-200">
+                            {svc.uniform}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ) : null}
@@ -588,13 +611,32 @@ export default function BandCalendarMonth() {
                         </div>
 
                         <div className="mt-2 border-t border-zinc-200 pt-2">
-                          <div className="inline-flex min-w-0 items-center gap-1.5">
-                            <GenderIcon className="h-3.5 w-3.5 shrink-0 text-zinc-700" aria-hidden />
-                            <span className="text-[11px] font-semibold shrink-0 text-zinc-700">:</span>
-                            <span className="text-[11px] truncate block min-w-0 text-zinc-800">
-                              {uniformTab === "women" ? svc.uniformWomen : svc.uniformMen}
-                            </span>
-                          </div>
+                          {svc.uniformWomen && svc.uniformMen ? (
+                            <div className="space-y-1">
+                              <div className="inline-flex min-w-0 items-center gap-1.5">
+                                <Venus className="h-3.5 w-3.5 shrink-0 text-zinc-700" aria-hidden />
+                                <span className="text-[11px] font-semibold shrink-0 text-zinc-700">:</span>
+                                <span className="text-[11px] truncate block min-w-0 text-zinc-800">
+                                  {svc.uniformWomen}
+                                </span>
+                              </div>
+                              <div className="inline-flex min-w-0 items-center gap-1.5">
+                                <Mars className="h-3.5 w-3.5 shrink-0 text-zinc-700" aria-hidden />
+                                <span className="text-[11px] font-semibold shrink-0 text-zinc-700">:</span>
+                                <span className="text-[11px] truncate block min-w-0 text-zinc-800">
+                                  {svc.uniformMen}
+                                </span>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="inline-flex min-w-0 items-center gap-1.5">
+                              <Shirt className="h-3.5 w-3.5 shrink-0 text-zinc-700" aria-hidden />
+                              <span className="text-[11px] font-semibold shrink-0 text-zinc-700">:</span>
+                              <span className="text-[11px] truncate block min-w-0 text-zinc-800">
+                                {svc.uniform}
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     ) : null}
