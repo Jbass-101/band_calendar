@@ -6,11 +6,11 @@ import { toPng } from "html-to-image";
 import {
   Drum,
   Guitar,
+  Mars,
   Mic,
   Piano,
   Shirt,
-  User,
-  UserRound,
+  Venus,
   type LucideIcon,
 } from "lucide-react";
 import type { Service } from "@/src/lib/sanity/client";
@@ -384,7 +384,7 @@ export default function BandCalendarMonth() {
                 uniformTab === "women" ? tabButtonActive : tabButtonInactive,
               ].join(" ")}
             >
-              <UserRound className="h-4 w-4 shrink-0" aria-hidden />
+              <Venus className="h-4 w-4 shrink-0" aria-hidden />
               Women
             </button>
             <button
@@ -397,7 +397,7 @@ export default function BandCalendarMonth() {
                 uniformTab === "men" ? tabButtonActive : tabButtonInactive,
               ].join(" ")}
             >
-              <User className="h-4 w-4 shrink-0" aria-hidden />
+              <Mars className="h-4 w-4 shrink-0" aria-hidden />
               Men
             </button>
           </div>
@@ -482,14 +482,14 @@ export default function BandCalendarMonth() {
                       {svc.uniformWomen && svc.uniformMen ? (
                         <div className="space-y-1">
                           <div className="inline-flex min-w-0 items-center gap-1.5">
-                            <UserRound className="h-3.5 w-3.5 shrink-0 text-zinc-600 dark:text-zinc-300" aria-hidden />
+                            <Venus className="h-3.5 w-3.5 shrink-0 text-zinc-600 dark:text-zinc-300" aria-hidden />
                             <span className="text-[11px] font-medium shrink-0 text-zinc-600 dark:text-zinc-300">:</span>
                             <span className="text-[11px] truncate block min-w-0 text-zinc-700 dark:text-zinc-200">
                               {svc.uniformWomen}
                             </span>
                           </div>
                           <div className="inline-flex min-w-0 items-center gap-1.5">
-                            <User className="h-3.5 w-3.5 shrink-0 text-zinc-600 dark:text-zinc-300" aria-hidden />
+                            <Mars className="h-3.5 w-3.5 shrink-0 text-zinc-600 dark:text-zinc-300" aria-hidden />
                             <span className="text-[11px] font-medium shrink-0 text-zinc-600 dark:text-zinc-300">:</span>
                             <span className="text-[11px] truncate block min-w-0 text-zinc-700 dark:text-zinc-200">
                               {svc.uniformMen}
@@ -617,14 +617,14 @@ export default function BandCalendarMonth() {
                           {svc.uniformWomen && svc.uniformMen ? (
                             <div className="space-y-1">
                               <div className="inline-flex min-w-0 items-center gap-1.5">
-                                <UserRound className="h-3.5 w-3.5 shrink-0 text-zinc-700" aria-hidden />
+                                <Venus className="h-3.5 w-3.5 shrink-0 text-zinc-700" aria-hidden />
                                 <span className="text-[11px] font-semibold shrink-0 text-zinc-700">:</span>
                                 <span className="text-[11px] truncate block min-w-0 text-zinc-800">
                                   {svc.uniformWomen}
                                 </span>
                               </div>
                               <div className="inline-flex min-w-0 items-center gap-1.5">
-                                <User className="h-3.5 w-3.5 shrink-0 text-zinc-700" aria-hidden />
+                                <Mars className="h-3.5 w-3.5 shrink-0 text-zinc-700" aria-hidden />
                                 <span className="text-[11px] font-semibold shrink-0 text-zinc-700">:</span>
                                 <span className="text-[11px] truncate block min-w-0 text-zinc-800">
                                   {svc.uniformMen}
