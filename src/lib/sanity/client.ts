@@ -8,7 +8,8 @@ export type MusicianAssignment = {
 export type Service = {
   date: string; // "YYYY-MM-DD"
   title: string;
-  uniform: string;
+  uniformWomen: string;
+  uniformMen: string;
   assignments: MusicianAssignment[];
 };
 
@@ -60,6 +61,8 @@ export async function fetchServicesForRange(
     title,
     date,
     uniform,
+    uniformWomen,
+    uniformMen,
     "leadVocalNames": leadVocal[]->name,
     "leadKeyboardNames": leadKeyboard[]->name,
     "auxKeyboardNames": auxKeyboard[]->name,
@@ -76,6 +79,8 @@ export async function fetchServicesForRange(
       title: string;
       date: string;
       uniform?: string | null;
+      uniformWomen?: string | null;
+      uniformMen?: string | null;
       leadVocalNames?: Array<string | null> | null;
       leadKeyboardNames?: Array<string | null> | null;
       auxKeyboardNames?: Array<string | null> | null;
@@ -85,6 +90,12 @@ export async function fetchServicesForRange(
       mdNames?: Array<string | null> | null;
     }>
   >(query, { from, to });
+
+  const normalizeUniformValue = (value: unknown): string | null => {
+    if (typeof value !== "string") return null;
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  };
 
   const normalizeNames = (value: Array<string | null> | null | undefined): string[] => {
     if (!Array.isArray(value)) return [];
@@ -96,10 +107,8 @@ export async function fetchServicesForRange(
   return raw.map((s) => ({
     date: s.date,
     title: s.title,
-    uniform:
-      typeof s.uniform === "string" && s.uniform.trim().length > 0
-        ? s.uniform.trim()
-        : "Smart Casual",
+    uniformWomen: normalizeUniformValue(s.uniformWomen) ?? normalizeUniformValue(s.uniform) ?? "Smart Casual",
+    uniformMen: normalizeUniformValue(s.uniformMen) ?? normalizeUniformValue(s.uniform) ?? "Smart Casual",
     assignments: [
       { role: "Lead Vocal", musicianNames: normalizeNames(s.leadVocalNames) },
       { role: "Lead Keyboard", musicianNames: normalizeNames(s.leadKeyboardNames) },

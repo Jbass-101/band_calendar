@@ -3,15 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { toPng } from "html-to-image";
-import { Drum, Guitar, Mic, Piano, Shirt, type LucideIcon } from "lucide-react";
-
-type MusicianAssignment = { role: string; musicianNames: string[] };
-type Service = {
-  date: string; // "YYYY-MM-DD"
-  title: string;
-  uniform: string;
-  assignments: MusicianAssignment[];
-};
+import { Drum, Guitar, Mic, Piano, Venus, Mars, type LucideIcon } from "lucide-react";
+import type { Service } from "@/src/lib/sanity/client";
 
 const ROLE_ORDER = [
   "Lead Vocal",
@@ -22,6 +15,8 @@ const ROLE_ORDER = [
   "Drummer",
   "MD",
 ] as const;
+
+type UniformTab = "women" | "men";
 
 /** Mobile: one line — musician name, or role label if unassigned; same colour family as the role */
 const ROLE_MOBILE_LINE_CLASS: Record<(typeof ROLE_ORDER)[number], string> = {
@@ -114,6 +109,7 @@ export default function BandCalendarMonth() {
   const [error, setError] = useState<string | null>(null);
   const [exportMode, setExportMode] = useState(false);
   const [exportGeneratedAt, setExportGeneratedAt] = useState<Date | null>(null);
+  const [uniformTab, setUniformTab] = useState<UniformTab>("women");
   const exportRef = useRef<HTMLDivElement | null>(null);
 
   const todayKey = useMemo(() => formatYMDLocal(new Date()), []);
@@ -130,6 +126,12 @@ export default function BandCalendarMonth() {
   const skeletonCards = Array.from({ length: 8 });
   const baseButtonClass =
     "inline-flex items-center justify-center rounded-lg border px-3 py-1.5 text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-50 dark:focus-visible:ring-offset-black";
+  const tabButtonBase =
+    "inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-50 dark:focus-visible:ring-offset-black";
+  const tabButtonActive =
+    "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-200";
+  const tabButtonInactive =
+    "border-zinc-200 bg-white/70 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900/30 dark:text-zinc-200 dark:hover:bg-zinc-800/60";
 
   useEffect(() => {
     const year = cursorMonth.getFullYear();
@@ -221,6 +223,8 @@ export default function BandCalendarMonth() {
     // YYYY-MM-DD string sort is chronological.
     return keys.sort();
   }, [grid, serviceByDate, rehearsalDates]);
+
+  const GenderIcon = uniformTab === "women" ? Venus : Mars;
 
   const handleDownloadPng = async () => {
     try {
@@ -353,6 +357,46 @@ export default function BandCalendarMonth() {
         </div>
       ) : null}
 
+      {!loading && !error && eventDateKeys.length !== 0 ? (
+        <div className="mb-3">
+          <div className="text-[11px] uppercase tracking-wide text-zinc-500 dark:text-zinc-400 mb-2">
+            Uniform
+          </div>
+          <div
+            role="tablist"
+            aria-label="Uniform selection"
+            className="flex items-center gap-2 flex-wrap"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={uniformTab === "women"}
+              onClick={() => setUniformTab("women")}
+              className={[
+                tabButtonBase,
+                uniformTab === "women" ? tabButtonActive : tabButtonInactive,
+              ].join(" ")}
+            >
+              <Venus className="h-4 w-4" aria-hidden />
+              Women
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={uniformTab === "men"}
+              onClick={() => setUniformTab("men")}
+              className={[
+                tabButtonBase,
+                uniformTab === "men" ? tabButtonActive : tabButtonInactive,
+              ].join(" ")}
+            >
+              <Mars className="h-4 w-4" aria-hidden />
+              Men
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {/* Event cards grid (desktop + mobile) */}
       <div className="overflow-y-auto max-h-[85vh] pr-1 sm:max-h-none sm:overflow-visible">
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 pb-1">
@@ -429,12 +473,10 @@ export default function BandCalendarMonth() {
 
                     <div className="mt-2 border-t border-zinc-200/80 dark:border-zinc-800/80 pt-2">
                       <div className="inline-flex min-w-0 items-center gap-1.5">
-                        <Shirt className="h-3.5 w-3.5 shrink-0 text-zinc-600 dark:text-zinc-300" aria-hidden />
+                        <GenderIcon className="h-3.5 w-3.5 shrink-0 text-zinc-600 dark:text-zinc-300" aria-hidden />
                         <span className="text-[11px] font-medium shrink-0 text-zinc-600 dark:text-zinc-300">:</span>
                         <span className="text-[11px] truncate block min-w-0 text-zinc-700 dark:text-zinc-200">
-                          {typeof svc.uniform === "string" && svc.uniform.trim().length > 0
-                            ? svc.uniform.trim()
-                            : "Smart Casual"}
+                          {uniformTab === "women" ? svc.uniformWomen : svc.uniformMen}
                         </span>
                       </div>
                     </div>
@@ -547,12 +589,10 @@ export default function BandCalendarMonth() {
 
                         <div className="mt-2 border-t border-zinc-200 pt-2">
                           <div className="inline-flex min-w-0 items-center gap-1.5">
-                            <Shirt className="h-3.5 w-3.5 shrink-0 text-zinc-700" aria-hidden />
+                            <GenderIcon className="h-3.5 w-3.5 shrink-0 text-zinc-700" aria-hidden />
                             <span className="text-[11px] font-semibold shrink-0 text-zinc-700">:</span>
                             <span className="text-[11px] truncate block min-w-0 text-zinc-800">
-                              {typeof svc.uniform === "string" && svc.uniform.trim().length > 0
-                                ? svc.uniform.trim()
-                                : "Smart Casual"}
+                              {uniformTab === "women" ? svc.uniformWomen : svc.uniformMen}
                             </span>
                           </div>
                         </div>
