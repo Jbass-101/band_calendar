@@ -2,10 +2,31 @@ export const DEFAULT_NON_COMMITTEE_TARGET = 100;
 export const DEFAULT_COMMITTEE_TARGET = 250;
 
 export type TargetHistoryRow = {
+  /** Sanity array item key — required for Studio; optional in app logic. */
+  _key?: string;
   effectiveFrom: string;
   nonCommitteeTarget: number;
   committeeTarget: number;
 };
+
+function randomSanityArrayKey(): string {
+  if (typeof globalThis.crypto?.randomUUID === "function") {
+    return globalThis.crypto.randomUUID();
+  }
+  return `th_${Date.now()}_${Math.random().toString(36).slice(2, 12)}`;
+}
+
+/**
+ * Ensures every target history row has a unique `_key` for Sanity array fields.
+ * Preserves existing keys when present.
+ */
+export function ensureTargetHistoryKeys(rows: TargetHistoryRow[]): TargetHistoryRow[] {
+  return rows.map((row) => ({
+    ...row,
+    _key:
+      typeof row._key === "string" && row._key.trim().length > 0 ? row._key : randomSanityArrayKey(),
+  }));
+}
 
 export type ResolvedTargets = {
   nonCommitteeTarget: number;

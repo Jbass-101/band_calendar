@@ -7,6 +7,7 @@ import {
   currentMonthStartUtc,
   DEFAULT_COMMITTEE_TARGET,
   DEFAULT_NON_COMMITTEE_TARGET,
+  ensureTargetHistoryKeys,
   type TargetHistoryRow,
 } from "@/src/lib/sanity/contributionTargets";
 import {
@@ -126,12 +127,14 @@ export async function POST(req: Request) {
     });
     withoutDup.sort((a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom));
 
+    const targetHistory = ensureTargetHistoryKeys(withoutDup);
+
     await client
       .patch(doc._id)
       .set({
         nonCommitteeTarget: non,
         committeeTarget: com,
-        targetHistory: withoutDup,
+        targetHistory,
       })
       .commit();
 
