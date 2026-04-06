@@ -78,11 +78,14 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Missing month query param" }, { status: 400 });
     }
     const month = normalizeMonth(monthRaw);
+    const year = month.slice(0, 4);
+    const fromYtd = `${year}-01-01`;
 
     const client = getSanityWriteClient();
-    const [contributions, members, accessRaw, expenses] = await Promise.all([
-      client.fetch<ContributionRecord[]>(
-        `*[_type == "contribution" && month == $month] | order(member->name asc) {
+    const [contributions, members, accessRaw, expenses, ytdContributionAmounts, ytdExpenseAmounts] =
+      await Promise.all([
+        client.fetch<ContributionRecord[]>(
+          `*[_type == "contribution" && month == $month] | order(member->name asc) {
           _id,
           month,
           amount,
@@ -92,28 +95,28 @@ export async function GET(req: Request) {
           member,
           "memberName": member->name
         }`,
-        { month }
-      ),
-      client.fetch<MemberOption[]>(
-        `*[_type == "musician"] | order(name asc) {
+          { month }
+        ),
+        client.fetch<MemberOption[]>(
+          `*[_type == "musician"] | order(name asc) {
           _id,
           name,
           roles
         }`
-      ),
-      client.fetch<{
-        nonCommitteeTarget?: number;
-        committeeTarget?: number;
-        targetHistory?: TargetHistoryRow[] | null;
-      } | null>(
-        `*[_type == "contributionAccess"][0]{
+        ),
+        client.fetch<{
+          nonCommitteeTarget?: number;
+          committeeTarget?: number;
+          targetHistory?: TargetHistoryRow[] | null;
+        } | null>(
+          `*[_type == "contributionAccess"][0]{
           nonCommitteeTarget,
           committeeTarget,
           targetHistory
         }`
-      ),
-      client.fetch<ExpenseRecord[]>(
-        `*[_type == "contributionExpense" && month == $month] | order(_createdAt desc) {
+        ),
+        client.fetch<ExpenseRecord[]>(
+          `*[_type == "contributionExpense" && month == $month] | order(_createdAt desc) {
           _id,
           date,
           month,
@@ -121,9 +124,17 @@ export async function GET(req: Request) {
           description,
           notes
         }`,
-        { month }
-      ),
-    ]);
+          { month }
+        ),
+        client.fetch<Array<{ amount?: number }>>(
+          `*[_type == "contribution" && month >= $fromYtd && month <= $toYtd]{ amount }`,
+          { fromYtd, toYtd: month }
+        ),
+        client.fetch<Array<{ amount?: number }>>(
+          `*[_type == "contributionExpense" && month >= $fromYtd && month <= $toYtd]{ amount }`,
+          { fromYtd, toYtd: month }
+        ),
+      ]);
 
     const flatNon = typeof accessRaw?.nonCommitteeTarget === "number" ? accessRaw.nonCommitteeTarget : 0;
     const flatCom = typeof accessRaw?.committeeTarget === "number" ? accessRaw.committeeTarget : 0;
@@ -137,6 +148,16 @@ export async function GET(req: Request) {
     const totalCollected = contributions.reduce((sum, c) => sum + (typeof c.amount === "number" ? c.amount : 0), 0);
     const expenseTotal = expenses.reduce((sum, e) => sum + (typeof e.amount === "number" ? e.amount : 0), 0);
     const netAfterExpenses = totalCollected - expenseTotal;
+
+    const ytdTotalCollected = ytdContributionAmounts.reduce(
+      (sum, row) => sum + (typeof row.amount === "number" ? row.amount : 0),
+      0
+    );
+    const ytdExpenseTotal = ytdExpenseAmounts.reduce(
+      (sum, row) => sum + (typeof row.amount === "number" ? row.amount : 0),
+      0
+    );
+    const ytdNetAfterExpenses = ytdTotalCollected - ytdExpenseTotal;
 
     const paidByMember = new Map<string, number>();
     for (const item of contributions) {
@@ -181,6 +202,11 @@ export async function GET(req: Request) {
         totalCollected,
         expenseTotal,
         netAfterExpenses,
+        ytdFromMonth: fromYtd,
+        ytdToMonth: month,
+        ytdTotalCollected,
+        ytdExpenseTotal,
+        ytdNetAfterExpenses,
       },
       { status: 200 }
     );

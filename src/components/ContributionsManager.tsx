@@ -332,6 +332,9 @@ export default function ContributionsManager({ authorized }: { authorized: boole
   const [totalCollected, setTotalCollected] = useState(0);
   const [expenseTotal, setExpenseTotal] = useState(0);
   const [netAfterExpenses, setNetAfterExpenses] = useState(0);
+  const [ytdTotalCollected, setYtdTotalCollected] = useState(0);
+  const [ytdExpenseTotal, setYtdExpenseTotal] = useState(0);
+  const [ytdNetAfterExpenses, setYtdNetAfterExpenses] = useState(0);
   const [dashboardRows, setDashboardRows] = useState<DashboardRow[]>([]);
   const [statusFilter, setStatusFilter] = useState<"all" | DashboardStatus>("all");
   const [loading, setLoading] = useState(false);
@@ -393,6 +396,9 @@ export default function ContributionsManager({ authorized }: { authorized: boole
         totalCollected?: number;
         expenseTotal?: number;
         netAfterExpenses?: number;
+        ytdTotalCollected?: number;
+        ytdExpenseTotal?: number;
+        ytdNetAfterExpenses?: number;
       };
       setMembers(data.members ?? []);
       setContributions(data.contributions ?? []);
@@ -408,6 +414,9 @@ export default function ContributionsManager({ authorized }: { authorized: boole
       setTotalCollected(typeof data.totalCollected === "number" ? data.totalCollected : 0);
       setExpenseTotal(typeof data.expenseTotal === "number" ? data.expenseTotal : 0);
       setNetAfterExpenses(typeof data.netAfterExpenses === "number" ? data.netAfterExpenses : 0);
+      setYtdTotalCollected(typeof data.ytdTotalCollected === "number" ? data.ytdTotalCollected : 0);
+      setYtdExpenseTotal(typeof data.ytdExpenseTotal === "number" ? data.ytdExpenseTotal : 0);
+      setYtdNetAfterExpenses(typeof data.ytdNetAfterExpenses === "number" ? data.ytdNetAfterExpenses : 0);
     } catch (e) {
       const message = e instanceof Error ? e.message : "Failed to load";
       setError(message);
@@ -622,6 +631,9 @@ export default function ContributionsManager({ authorized }: { authorized: boole
     setTotalCollected(0);
     setExpenseTotal(0);
     setNetAfterExpenses(0);
+    setYtdTotalCollected(0);
+    setYtdExpenseTotal(0);
+    setYtdNetAfterExpenses(0);
   }
 
   async function handleExpenseSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -1044,6 +1056,30 @@ export default function ContributionsManager({ authorized }: { authorized: boole
                 <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">{money(netAfterExpenses)}</p>
               </div>
             </div>
+
+            <div className="mt-4 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50/80 dark:bg-zinc-900/40 p-3">
+              <p className="text-xs font-semibold text-zinc-600 dark:text-zinc-300 mb-2">
+                Year to date ({month.slice(0, 4)} · 1 Jan – {formatYearMonthToDDMMYYYY(month)})
+              </p>
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mb-3">
+                Total contributions and expenses from the start of the calendar year through the selected month.
+              </p>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                <div className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white/90 dark:bg-zinc-950/50 p-3">
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">YTD collected</p>
+                  <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{money(ytdTotalCollected)}</p>
+                </div>
+                <div className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white/90 dark:bg-zinc-950/50 p-3">
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">YTD expenses</p>
+                  <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{money(ytdExpenseTotal)}</p>
+                </div>
+                <div className="rounded-lg border border-emerald-300/70 bg-emerald-50/60 dark:bg-emerald-900/20 dark:border-emerald-700 p-3 col-span-2 md:col-span-1">
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">YTD net after expenses</p>
+                  <p className="text-xl font-bold text-emerald-700 dark:text-emerald-400">{money(ytdNetAfterExpenses)}</p>
+                </div>
+              </div>
+            </div>
+
             <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
               Targets for {formatYearMonthToDDMMYYYY(month)}: Non-committee R{money(settings.nonCommitteeTarget)} |
               Committee R{money(settings.committeeTarget)}
