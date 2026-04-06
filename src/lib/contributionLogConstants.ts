@@ -13,6 +13,7 @@ export const CONTRIBUTION_LOG_EVENT_TYPES = [
   "auth.sign_out",
   "statement.download_month",
   "statement.download_ytd",
+  "musician.whatsapp_update",
 ] as const;
 
 export type ContributionLogEventType = (typeof CONTRIBUTION_LOG_EVENT_TYPES)[number];

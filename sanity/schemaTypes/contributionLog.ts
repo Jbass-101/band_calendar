@@ -32,6 +32,7 @@ export const contributionLog = defineType({
           { title: "Sign out", value: "auth.sign_out" },
           { title: "Statement month PNG", value: "statement.download_month" },
           { title: "Statement YTD PNG", value: "statement.download_ytd" },
+          { title: "Musician WhatsApp updated", value: "musician.whatsapp_update" },
         ],
         layout: "dropdown",
       },

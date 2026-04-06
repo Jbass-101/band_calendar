@@ -6,11 +6,13 @@ import { toPng } from "html-to-image";
 import { toast } from "sonner";
 import { CONTRIBUTION_LOG_EVENT_TYPES } from "@/src/lib/contributionLogConstants";
 import { formatIsoDateTimeToDisplay, formatIsoDateToDDMMYYYY, formatYearMonthToDDMMYYYY } from "@/src/lib/formatDate";
+import { normalizeWhatsappForStorage, whatsappDigitsForWaMe } from "@/src/lib/whatsappNumber";
 
 type Member = {
   _id: string;
   name: string;
   roles?: string[];
+  whatsapp?: string | null;
 };
 
 type Contribution = {
@@ -50,6 +52,7 @@ type DashboardRow = {
   paidAmount: number;
   balance: number;
   status: DashboardStatus;
+  whatsapp?: string | null;
 };
 
 type MemberYtdTotal = {
@@ -374,6 +377,9 @@ export default function ContributionsManager({ authorized }: { authorized: boole
   const [logTypeFilter, setLogTypeFilter] = useState<string>("all");
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
 
+  const [whatsappDraftByMember, setWhatsappDraftByMember] = useState<Record<string, string>>({});
+  const [whatsappSavingId, setWhatsappSavingId] = useState<string | null>(null);
+
   async function loadData() {
     setLoading(true);
     setError(null);
@@ -417,6 +423,7 @@ export default function ContributionsManager({ authorized }: { authorized: boole
       setYtdTotalCollected(typeof data.ytdTotalCollected === "number" ? data.ytdTotalCollected : 0);
       setYtdExpenseTotal(typeof data.ytdExpenseTotal === "number" ? data.ytdExpenseTotal : 0);
       setYtdNetAfterExpenses(typeof data.ytdNetAfterExpenses === "number" ? data.ytdNetAfterExpenses : 0);
+      setWhatsappDraftByMember({});
     } catch (e) {
       const message = e instanceof Error ? e.message : "Failed to load";
       setError(message);
@@ -594,6 +601,64 @@ export default function ContributionsManager({ authorized }: { authorized: boole
     if (status === "overpaid") return "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300";
     if (status === "partial") return "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300";
     return "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300";
+  }
+
+  function contributionReminderMessage(row: DashboardRow): string | null {
+    if (row.balance >= 0) return null;
+    const period = formatYearMonthToDDMMYYYY(month);
+    const shortBy = money(Math.abs(row.balance));
+    return `Hi ${row.memberName}, your band contribution for ${period} is short by R${shortBy}. Please pay when you can. Thank you!`;
+  }
+
+  function whatsappReminderHref(row: DashboardRow): string | null {
+    const draft = whatsappDraftByMember[row.memberId];
+    const raw = draft !== undefined ? draft : (row.whatsapp ?? "");
+    const normalized = normalizeWhatsappForStorage(raw);
+    if (raw.trim() !== "" && normalized === null) return null;
+    const digits = normalized ? whatsappDigitsForWaMe(normalized) : null;
+    const msg = contributionReminderMessage(row);
+    if (!digits || !msg) return null;
+    return `https://wa.me/${digits}?text=${encodeURIComponent(msg)}`;
+  }
+
+  async function commitWhatsapp(memberId: string) {
+    const row = dashboardRows.find((r) => r.memberId === memberId);
+    if (!row) return;
+    const draft = whatsappDraftByMember[memberId];
+    const effective = draft !== undefined ? draft : (row.whatsapp ?? "");
+    const nextNorm = normalizeWhatsappForStorage(effective);
+    const prevNorm = row.whatsapp ?? null;
+    if (nextNorm === prevNorm) return;
+
+    setWhatsappSavingId(memberId);
+    try {
+      const res = await fetch("/api/contributions/member-whatsapp", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          memberId,
+          whatsapp: effective.trim() === "" ? null : effective,
+        }),
+      });
+      const body = (await res.json().catch(() => ({}))) as { error?: string; whatsapp?: string | null };
+      if (!res.ok) throw new Error(body.error ?? "Failed to save WhatsApp number");
+      const saved = body.whatsapp ?? null;
+      setDashboardRows((prev) =>
+        prev.map((r) => (r.memberId === memberId ? { ...r, whatsapp: saved } : r))
+      );
+      setMembers((prev) => prev.map((m) => (m._id === memberId ? { ...m, whatsapp: saved } : m)));
+      setWhatsappDraftByMember((prev) => {
+        const next = { ...prev };
+        delete next[memberId];
+        return next;
+      });
+      toast.success("WhatsApp number saved");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to save");
+    } finally {
+      setWhatsappSavingId(null);
+    }
   }
 
   async function handleUnlock(e: React.FormEvent<HTMLFormElement>) {
@@ -1103,49 +1168,89 @@ export default function ContributionsManager({ authorized }: { authorized: boole
             ) : (
               <>
                 <div className="mt-3 space-y-2 sm:hidden">
-                  {filteredRows.map((row) => (
-                    <div
-                      key={row.memberId}
-                      className="rounded-lg border border-zinc-200 dark:border-zinc-800 p-3 bg-white/80 dark:bg-zinc-950/50"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{row.memberName}</p>
-                        <span
-                          className={[
-                            "inline-flex shrink-0 rounded-full px-2 py-0.5 text-xs font-medium capitalize",
-                            statusBadgeClass(row.status),
-                          ].join(" ")}
-                        >
-                          {row.status}
-                        </span>
-                      </div>
-                      <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                        {row.isCommittee ? "Committee" : "Non-committee"}
-                      </p>
-                      <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
-                        <div>
-                          <p className="text-zinc-500 dark:text-zinc-400">Expected</p>
-                          <p className="text-zinc-900 dark:text-zinc-100">{money(row.expectedAmount)}</p>
-                        </div>
-                        <div>
-                          <p className="text-zinc-500 dark:text-zinc-400">Paid</p>
-                          <p className="text-zinc-900 dark:text-zinc-100">{money(row.paidAmount)}</p>
-                        </div>
-                        <div>
-                          <p className="text-zinc-500 dark:text-zinc-400">Balance</p>
-                          <p
-                            className={
-                              row.balance < 0
-                                ? "text-rose-600 dark:text-rose-400"
-                                : "text-zinc-900 dark:text-zinc-100"
-                            }
+                  {filteredRows.map((row) => {
+                    const waHref = whatsappReminderHref(row);
+                    return (
+                      <div
+                        key={row.memberId}
+                        className="rounded-lg border border-zinc-200 dark:border-zinc-800 p-3 bg-white/80 dark:bg-zinc-950/50"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{row.memberName}</p>
+                          <span
+                            className={[
+                              "inline-flex shrink-0 rounded-full px-2 py-0.5 text-xs font-medium capitalize",
+                              statusBadgeClass(row.status),
+                            ].join(" ")}
                           >
-                            {money(row.balance)}
-                          </p>
+                            {row.status}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                          {row.isCommittee ? "Committee" : "Non-committee"}
+                        </p>
+                        <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+                          <div>
+                            <p className="text-zinc-500 dark:text-zinc-400">Expected</p>
+                            <p className="text-zinc-900 dark:text-zinc-100">{money(row.expectedAmount)}</p>
+                          </div>
+                          <div>
+                            <p className="text-zinc-500 dark:text-zinc-400">Paid</p>
+                            <p className="text-zinc-900 dark:text-zinc-100">{money(row.paidAmount)}</p>
+                          </div>
+                          <div>
+                            <p className="text-zinc-500 dark:text-zinc-400">Balance</p>
+                            <p
+                              className={
+                                row.balance < 0
+                                  ? "text-rose-600 dark:text-rose-400"
+                                  : "text-zinc-900 dark:text-zinc-100"
+                              }
+                            >
+                              {money(row.balance)}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="mt-3 pt-2 border-t border-zinc-200 dark:border-zinc-800">
+                          <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-300 mb-1">
+                            WhatsApp (saved on blur)
+                          </label>
+                          <div className="flex flex-col gap-2.5">
+                            <input
+                              type="tel"
+                              inputMode="tel"
+                              autoComplete="tel"
+                              placeholder="e.g. 27821234567"
+                              className="w-[15ch] max-w-full rounded-md border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-1.5 py-1.5 text-xs tabular-nums"
+                              value={whatsappDraftByMember[row.memberId] ?? row.whatsapp ?? ""}
+                              onChange={(e) =>
+                                setWhatsappDraftByMember((prev) => ({
+                                  ...prev,
+                                  [row.memberId]: e.target.value,
+                                }))
+                              }
+                              onBlur={() => void commitWhatsapp(row.memberId)}
+                              disabled={whatsappSavingId === row.memberId}
+                            />
+                            {waHref ? (
+                              <a
+                                href={waHref}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex text-xs font-medium text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300"
+                              >
+                                Open WhatsApp reminder
+                              </a>
+                            ) : row.balance < 0 ? (
+                              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                                Add a valid number for a prefilled balance reminder.
+                              </p>
+                            ) : null}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 <div className="mt-3 hidden sm:block overflow-x-auto max-h-[28rem] rounded-lg border border-zinc-200 dark:border-zinc-800">
                   <table className="min-w-full text-sm">
@@ -1156,11 +1261,16 @@ export default function ContributionsManager({ authorized }: { authorized: boole
                         <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3 text-right">Expected</th>
                         <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3 text-right">Paid</th>
                         <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3 text-right">Balance</th>
+                        <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3 w-[1%] whitespace-nowrap">
+                          WhatsApp
+                        </th>
                         <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3">Status</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredRows.map((row, idx) => (
+                      {filteredRows.map((row, idx) => {
+                        const waHref = whatsappReminderHref(row);
+                        return (
                         <tr
                           key={row.memberId}
                           className={[
@@ -1188,6 +1298,39 @@ export default function ContributionsManager({ authorized }: { authorized: boole
                           >
                             {money(row.balance)}
                           </td>
+                          <td className="py-2 pr-3 align-top">
+                            <div className="flex w-[15ch] max-w-full flex-col gap-2.5">
+                              <input
+                                type="tel"
+                                inputMode="tel"
+                                autoComplete="tel"
+                                placeholder="2782…"
+                                title="Saved when you leave this field"
+                                className="w-full rounded-md border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-1.5 py-1 text-xs tabular-nums"
+                                value={whatsappDraftByMember[row.memberId] ?? row.whatsapp ?? ""}
+                                onChange={(e) =>
+                                  setWhatsappDraftByMember((prev) => ({
+                                    ...prev,
+                                    [row.memberId]: e.target.value,
+                                  }))
+                                }
+                                onBlur={() => void commitWhatsapp(row.memberId)}
+                                disabled={whatsappSavingId === row.memberId}
+                              />
+                              {waHref ? (
+                                <a
+                                  href={waHref}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-block text-xs font-medium text-emerald-600 hover:text-emerald-700 dark:text-emerald-400"
+                                >
+                                  Remind
+                                </a>
+                              ) : row.balance < 0 ? (
+                                <span className="block text-[11px] text-zinc-400">—</span>
+                              ) : null}
+                            </div>
+                          </td>
                           <td className="py-2 pr-3">
                             <span
                               className={[
@@ -1199,7 +1342,8 @@ export default function ContributionsManager({ authorized }: { authorized: boole
                             </span>
                           </td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

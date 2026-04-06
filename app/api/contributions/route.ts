@@ -30,6 +30,7 @@ type MemberOption = {
   _id: string;
   name: string;
   roles?: string[];
+  whatsapp?: string | null;
 };
 
 type ContributionSettings = {
@@ -101,7 +102,8 @@ export async function GET(req: Request) {
           `*[_type == "musician"] | order(name asc) {
           _id,
           name,
-          roles
+          roles,
+          whatsapp
         }`
         ),
         client.fetch<{
@@ -188,6 +190,7 @@ export async function GET(req: Request) {
         paidAmount,
         balance,
         status,
+        whatsapp: member.whatsapp ?? null,
       };
     });
 

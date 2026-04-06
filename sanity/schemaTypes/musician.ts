@@ -55,6 +55,22 @@ export const musician = defineType({
             return true;
           }),
     }),
+    defineField({
+      name: "whatsapp",
+      title: "WhatsApp number",
+      type: "string",
+      description:
+        "International format with country code (e.g. 27821234567). Used for reminders from the contributions page.",
+      validation: (rule) =>
+        rule.custom((value) => {
+          if (value == null || value === "") return true;
+          const digits = String(value).replace(/\D/g, "");
+          if (digits.length < 8 || digits.length > 15) {
+            return "Use 8–15 digits including country code.";
+          }
+          return true;
+        }),
+    }),
   ],
 });
 
