@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { toPng } from "html-to-image";
+import { downloadDomAsPdf } from "@/src/lib/exportDomToPdf";
 import { toast } from "sonner";
 import { CONTRIBUTION_LOG_EVENT_TYPES } from "@/src/lib/contributionLogConstants";
 import { formatIsoDateTimeToDisplay, formatIsoDateToDDMMYYYY, formatYearMonthToDDMMYYYY } from "@/src/lib/formatDate";
@@ -432,7 +432,7 @@ export default function ContributionsManager({ authorized }: { authorized: boole
     }
   }
 
-  async function downloadStatementPng(scope: "month" | "ytd") {
+  async function downloadStatementPdf(scope: "month" | "ytd") {
     setStatementExporting(true);
     setError(null);
     try {
@@ -451,16 +451,12 @@ export default function ContributionsManager({ authorized }: { authorized: boole
       await new Promise((resolve) => setTimeout(resolve, 50));
       const node = statementRef.current;
       if (!node) throw new Error("Statement not ready");
-      const dataUrl = await toPng(node, {
-        cacheBust: true,
-        backgroundColor: "#ffffff",
-        pixelRatio: 2,
-      });
       const suffix = scope === "month" ? "month" : "ytd";
-      const link = document.createElement("a");
-      link.download = `contributions-statement-${month}-${suffix}.png`;
-      link.href = dataUrl;
-      link.click();
+      await downloadDomAsPdf(node, {
+        filename: `contributions-statement-${month}-${suffix}.pdf`,
+        scale: 2,
+        backgroundColor: "#ffffff",
+      });
       toast.success(
         scope === "month" ? "Month statement downloaded" : "YTD statement downloaded"
       );
@@ -478,8 +474,8 @@ export default function ContributionsManager({ authorized }: { authorized: boole
             eventType: scope === "month" ? "statement.download_month" : "statement.download_ytd",
             summary:
               scope === "month"
-                ? `Downloaded month statement PNG (${formatYearMonthToDDMMYYYY(month)})`
-                : `Downloaded YTD statement PNG (${data.periodLabel})`,
+                ? `Downloaded month statement PDF (${formatYearMonthToDDMMYYYY(month)})`
+                : `Downloaded YTD statement PDF (${data.periodLabel})`,
             month: /^\d{4}-\d{2}$/.test(ym) ? ym : undefined,
           }),
         });
@@ -487,7 +483,7 @@ export default function ContributionsManager({ authorized }: { authorized: boole
         /* non-blocking */
       }
     } catch (e) {
-      const message = e instanceof Error ? e.message : "PNG export failed";
+      const message = e instanceof Error ? e.message : "PDF export failed";
       setError(message);
       toast.error(message);
     } finally {
@@ -1074,19 +1070,19 @@ export default function ContributionsManager({ authorized }: { authorized: boole
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
-                  onClick={() => void downloadStatementPng("month")}
+                  onClick={() => void downloadStatementPdf("month")}
                   disabled={loading || statementExporting}
                   className="rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2 text-sm font-medium text-zinc-800 dark:text-zinc-100 disabled:opacity-60"
                 >
-                  {statementExporting ? "Preparing…" : "Download month (PNG)"}
+                  {statementExporting ? "Preparing…" : "Download month (PDF)"}
                 </button>
                 <button
                   type="button"
-                  onClick={() => void downloadStatementPng("ytd")}
+                  onClick={() => void downloadStatementPdf("ytd")}
                   disabled={loading || statementExporting}
                   className="rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2 text-sm font-medium text-zinc-800 dark:text-zinc-100 disabled:opacity-60"
                 >
-                  {statementExporting ? "Preparing…" : "Download YTD (PNG)"}
+                  {statementExporting ? "Preparing…" : "Download YTD (PDF)"}
                 </button>
               </div>
             </div>
@@ -1961,11 +1957,11 @@ export default function ContributionsManager({ authorized }: { authorized: boole
       )}
 
       {exportMode && reportForExport ? (
-        <div className="fixed top-0 left-[-100000px] pointer-events-none z-[-1]">
+        <div className="fixed top-0 left-[-10000px] pointer-events-none z-[-1] w-[900px] max-w-[100vw]">
           <div
             ref={statementRef}
             className="w-full bg-white text-zinc-900 p-8"
-            style={{ maxWidth: 900 }}
+            style={{ width: 900, maxWidth: "100%" }}
           >
             <ContributionsStatementExport report={reportForExport} />
           </div>

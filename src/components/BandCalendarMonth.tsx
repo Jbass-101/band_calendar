@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
-import { toPng } from "html-to-image";
+import { downloadDomAsPdf } from "@/src/lib/exportDomToPdf";
 import {
   Drum,
   Guitar,
@@ -115,7 +115,8 @@ export default function BandCalendarMonth() {
   const [services, setServices] = useState<Service[]>([]);
   const [rehearsalDates, setRehearsalDates] = useState<Set<string>>(() => new Set());
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
   const [exportMode, setExportMode] = useState(false);
   const [exportGeneratedAt, setExportGeneratedAt] = useState<Date | null>(null);
   const [uniformTab, setUniformTab] = useState<UniformTab>("women");
@@ -174,13 +175,14 @@ export default function BandCalendarMonth() {
         if (cancelled) return;
         setServices(serviceData);
         setRehearsalDates(new Set(rehearsalData));
-        setError(null);
+        setLoadError(null);
+        setExportError(null);
       })
       .catch((e) => {
         if (cancelled) return;
         setServices([]);
         setRehearsalDates(new Set());
-        setError(e instanceof Error ? e.message : "Failed to load calendar data");
+        setLoadError(e instanceof Error ? e.message : "Failed to load calendar data");
       })
       .finally(() => {
         if (cancelled) return;
@@ -233,9 +235,9 @@ export default function BandCalendarMonth() {
     return keys.sort();
   }, [grid, serviceByDate, rehearsalDates]);
 
-  const handleDownloadPng = async () => {
+  const handleDownloadPdf = async () => {
     try {
-      setError(null);
+      setExportError(null);
       setExportGeneratedAt(new Date());
       setExportMode(true);
 
@@ -246,22 +248,17 @@ export default function BandCalendarMonth() {
       const node = exportRef.current;
       if (!node) return;
 
-      const dataUrl = await toPng(node, {
-        cacheBust: true,
-        backgroundColor: "#ffffff",
-        pixelRatio: 2,
-      });
-
       const y = cursorMonth.getFullYear();
       const m = String(cursorMonth.getMonth() + 1).padStart(2, "0");
-      const filename = `last-harvest-band-calendar-${y}-${m}.png`;
+      const filename = `last-harvest-band-calendar-${y}-${m}.pdf`;
 
-      const link = document.createElement("a");
-      link.download = filename;
-      link.href = dataUrl;
-      link.click();
+      await downloadDomAsPdf(node, {
+        filename,
+        scale: 2,
+        backgroundColor: "#ffffff",
+      });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to export PNG");
+      setExportError(e instanceof Error ? e.message : "Failed to export PDF");
     } finally {
       setExportMode(false);
     }
@@ -283,7 +280,7 @@ export default function BandCalendarMonth() {
             type="button"
             aria-label="Go to previous month"
             onClick={() => {
-              setError(null);
+              setLoadError(null);
               setLoading(true);
               setCursorMonth((d) => addMonths(d, -1));
             }}
@@ -300,7 +297,7 @@ export default function BandCalendarMonth() {
             aria-label="Go to next month"
             onClick={() => {
               if (!canGoNext) return;
-              setError(null);
+              setLoadError(null);
               setLoading(true);
               setCursorMonth((d) => addMonths(d, 1));
             }}
@@ -315,9 +312,9 @@ export default function BandCalendarMonth() {
 
           <button
             type="button"
-            onClick={handleDownloadPng}
+            onClick={handleDownloadPdf}
             disabled={loading || eventDateKeys.length === 0}
-            aria-label="Download month schedule as PNG"
+            aria-label="Download month schedule as PDF"
             className={[
               baseButtonClass,
               "border-emerald-300 dark:border-emerald-700 bg-emerald-50/80 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-200 hover:bg-emerald-100 dark:hover:bg-emerald-900/35",
@@ -326,7 +323,7 @@ export default function BandCalendarMonth() {
                 : "",
             ].join(" ")}
           >
-            Download PNG
+            Download PDF
           </button>
         </div>
       </div>
@@ -351,12 +348,12 @@ export default function BandCalendarMonth() {
             ))}
           </div>
         </div>
-      ) : error ? (
+      ) : loadError ? (
         <div
           role="alert"
           className="rounded-xl border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/30 px-4 py-3 text-sm text-red-700 dark:text-red-300"
         >
-          <span className="font-semibold">Couldn&apos;t load calendar.</span> {error}
+          <span className="font-semibold">Couldn&apos;t load calendar.</span> {loadError}
         </div>
       ) : eventDateKeys.length === 0 ? (
         <div className="rounded-xl border border-zinc-200/80 dark:border-zinc-800/80 bg-zinc-50/80 dark:bg-zinc-900/40 px-4 py-4 text-sm text-zinc-600 dark:text-zinc-300">
@@ -364,7 +361,16 @@ export default function BandCalendarMonth() {
         </div>
       ) : null}
 
-      {!loading && !error && eventDateKeys.length !== 0 ? (
+      {exportError ? (
+        <div
+          role="alert"
+          className="mb-3 rounded-xl border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/25 px-4 py-2.5 text-sm text-amber-900 dark:text-amber-200"
+        >
+          <span className="font-semibold">Couldn&apos;t export PDF.</span> {exportError}
+        </div>
+      ) : null}
+
+      {!loading && !loadError && eventDateKeys.length !== 0 ? (
         <div className="mb-3">
           <div className="text-[11px] uppercase tracking-wide text-zinc-500 dark:text-zinc-400 mb-2">
             Uniform
@@ -506,6 +512,7 @@ export default function BandCalendarMonth() {
                         </div>
                       )}
                     </div>
+                    {isOverlap ? <div className="h-6 shrink-0" aria-hidden /> : null}
                   </div>
                 ) : null}
 
@@ -522,11 +529,11 @@ export default function BandCalendarMonth() {
 
       {/* Offscreen export container (single column, light styling) */}
       {exportMode ? (
-        <div className="fixed top-0 left-[-100000px] pointer-events-none">
+        <div className="fixed top-0 left-[-10000px] pointer-events-none w-[900px]">
           <div
             ref={exportRef}
             className="w-full bg-white text-zinc-900 p-6"
-            style={{ maxWidth: 900 }}
+            style={{ width: 900 }}
           >
             <header className="mb-5 flex flex-nowrap items-start gap-4 border-b border-zinc-200 pb-5">
               <div className="shrink-0">
@@ -577,7 +584,8 @@ export default function BandCalendarMonth() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 pb-1">
+            {/* Fixed 3-column print layout — narrower cards than 2-up; no viewport breakpoints. */}
+            <div className="grid grid-cols-3 gap-2 pb-1">
               {eventDateKeys.map((key) => {
                 const svc = serviceByDate.get(key);
                 const date = parseYMDLocal(key);
@@ -591,7 +599,7 @@ export default function BandCalendarMonth() {
                   <div
                     key={key}
                     className={[
-                      "min-h-28 rounded-md border p-3 relative overflow-hidden",
+                      "min-h-28 rounded-md border p-3 relative overflow-visible min-w-0",
                       isPast
                         ? "border-zinc-200 bg-zinc-50 opacity-70"
                         : "border-zinc-200 bg-white",
@@ -616,7 +624,7 @@ export default function BandCalendarMonth() {
 
                     {svc ? (
                       <div className="mt-2">
-                        <div className="text-xs font-semibold truncate">
+                        <div className="text-xs font-semibold break-words leading-snug">
                           {formatServiceTitleForDate(date, svc.title)}
                         </div>
                         <div className="mt-2 space-y-1">
@@ -633,12 +641,12 @@ export default function BandCalendarMonth() {
                             const RoleIcon = ROLE_MOBILE_ICON[role];
 
                             return (
-                              <div key={role} className="flex w-full min-w-0 items-center gap-1.5">
-                                <RoleIcon className={["h-3.5 w-3.5 shrink-0", lineClass].join(" ")} aria-hidden />
-                                <span className={["text-[11px] font-semibold shrink-0", lineClass].join(" ")}>:</span>
+                              <div key={role} className="flex w-full min-w-0 items-start gap-1.5">
+                                <RoleIcon className={["h-3.5 w-3.5 shrink-0 mt-0.5", lineClass].join(" ")} aria-hidden />
+                                <span className={["text-[11px] font-semibold shrink-0 pt-0.5", lineClass].join(" ")}>:</span>
                                 <span
                                   className={[
-                                    "text-[11px] truncate block min-w-0",
+                                    "text-[11px] min-w-0 flex-1 break-words leading-snug",
                                     lineClass,
                                     !hasName ? "font-semibold" : "",
                                   ].join(" ")}
@@ -652,32 +660,33 @@ export default function BandCalendarMonth() {
 
                         <div className="mt-2 border-t border-zinc-200 pt-2">
                           {svc.uniformWomen && svc.uniformMen ? (
-                            <div className="space-y-1">
-                              <div className="inline-flex min-w-0 items-center gap-1.5">
-                                <Venus className="h-3.5 w-3.5 shrink-0 text-zinc-700" aria-hidden />
-                                <span className="text-[11px] font-semibold shrink-0 text-zinc-700">:</span>
-                                <span className="text-[11px] truncate block min-w-0 text-zinc-800">
+                            <div className="space-y-2">
+                              <div className="flex min-w-0 items-start gap-1.5">
+                                <Venus className="h-3.5 w-3.5 shrink-0 mt-0.5 text-zinc-700" aria-hidden />
+                                <span className="text-[11px] font-semibold shrink-0 text-zinc-700 pt-0.5">:</span>
+                                <span className="text-[11px] min-w-0 flex-1 break-words leading-snug text-zinc-800">
                                   {svc.uniformWomen}
                                 </span>
                               </div>
-                              <div className="inline-flex min-w-0 items-center gap-1.5">
-                                <Mars className="h-3.5 w-3.5 shrink-0 text-zinc-700" aria-hidden />
-                                <span className="text-[11px] font-semibold shrink-0 text-zinc-700">:</span>
-                                <span className="text-[11px] truncate block min-w-0 text-zinc-800">
+                              <div className="flex min-w-0 items-start gap-1.5">
+                                <Mars className="h-3.5 w-3.5 shrink-0 mt-0.5 text-zinc-700" aria-hidden />
+                                <span className="text-[11px] font-semibold shrink-0 text-zinc-700 pt-0.5">:</span>
+                                <span className="text-[11px] min-w-0 flex-1 break-words leading-snug text-zinc-800">
                                   {svc.uniformMen}
                                 </span>
                               </div>
                             </div>
                           ) : (
-                            <div className="inline-flex min-w-0 items-center gap-1.5">
-                              <Shirt className="h-3.5 w-3.5 shrink-0 text-zinc-700" aria-hidden />
-                              <span className="text-[11px] font-semibold shrink-0 text-zinc-700">:</span>
-                              <span className="text-[11px] truncate block min-w-0 text-zinc-800">
+                            <div className="flex min-w-0 items-start gap-1.5">
+                              <Shirt className="h-3.5 w-3.5 shrink-0 mt-0.5 text-zinc-700" aria-hidden />
+                              <span className="text-[11px] font-semibold shrink-0 text-zinc-700 pt-0.5">:</span>
+                              <span className="text-[11px] min-w-0 flex-1 break-words leading-snug text-zinc-800">
                                 {svc.uniform}
                               </span>
                             </div>
                           )}
                         </div>
+                        {isOverlap ? <div className="h-6 shrink-0" aria-hidden /> : null}
                       </div>
                     ) : null}
 
