@@ -149,9 +149,13 @@ export default function BandCalendarMonth() {
 
     const fromDate = new Date(year, month, 1);
     const toDate = new Date(year, month + 1, 0);
+    const servicesToDate = new Date(toDate.getTime());
+    // Include a small spillover so Wednesday rehearsals at month-end can list services through Sunday.
+    servicesToDate.setDate(servicesToDate.getDate() + 6);
 
     const from = formatYMDLocal(fromDate);
     const to = formatYMDLocal(toDate);
+    const servicesTo = formatYMDLocal(servicesToDate);
 
     let cancelled = false;
 
@@ -167,7 +171,7 @@ export default function BandCalendarMonth() {
 
     Promise.all([
       fetchJSON<Service[]>(
-        `/api/services?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
+        `/api/services?from=${encodeURIComponent(from)}&to=${encodeURIComponent(servicesTo)}`
       ),
       fetchJSON<string[]>(`/api/rehearsals?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
     ])
@@ -421,6 +425,21 @@ export default function BandCalendarMonth() {
             const isRehearsal = rehearsalDates.has(key);
             const isOverlap = Boolean(svc) && isRehearsal;
             const isPast = key < todayKey;
+            const isWednesdayRehearsal = isRehearsal && date.getDay() === 3;
+            const rehearsalServiceLines = isWednesdayRehearsal
+              ? (() => {
+                  const sunday = new Date(date.getTime());
+                  sunday.setDate(sunday.getDate() + (7 - sunday.getDay()));
+                  const sundayKey = formatYMDLocal(sunday);
+                  return services
+                    .filter((s) => s.date >= key && s.date <= sundayKey)
+                    .sort((a, b) => a.date.localeCompare(b.date) || a.title.localeCompare(b.title))
+                    .map((s) => {
+                      const serviceDate = parseYMDLocal(s.date);
+                      return serviceDate ? formatServiceTitleForDate(serviceDate, s.title) : s.title;
+                    });
+                })()
+              : [];
 
             return (
               <div
@@ -517,8 +536,13 @@ export default function BandCalendarMonth() {
                 ) : null}
 
                 {!svc && isRehearsal ? (
-                  <div className="mt-2 w-full text-center text-[10px] font-semibold whitespace-nowrap border border-orange-500 bg-orange-500 text-white rounded-sm py-1">
-                    Rehearsal
+                  <div className="mt-2 space-y-1 rounded-sm border border-orange-500 bg-orange-500/95 px-2 py-1 text-white">
+                    <div className="w-full text-center text-[10px] font-semibold">Rehearsal</div>
+                    {rehearsalServiceLines.map((line, idx) => (
+                      <div key={`${key}-rehearsal-service-${idx}`} className="text-[10px] font-semibold leading-snug">
+                        {line}
+                      </div>
+                    ))}
                   </div>
                 ) : null}
               </div>
@@ -594,6 +618,21 @@ export default function BandCalendarMonth() {
                 const isRehearsal = rehearsalDates.has(key);
                 const isOverlap = Boolean(svc) && isRehearsal;
                 const isPast = key < todayKey;
+                const isWednesdayRehearsal = isRehearsal && date.getDay() === 3;
+                const rehearsalServiceLines = isWednesdayRehearsal
+                  ? (() => {
+                      const sunday = new Date(date.getTime());
+                      sunday.setDate(sunday.getDate() + (7 - sunday.getDay()));
+                      const sundayKey = formatYMDLocal(sunday);
+                      return services
+                        .filter((s) => s.date >= key && s.date <= sundayKey)
+                        .sort((a, b) => a.date.localeCompare(b.date) || a.title.localeCompare(b.title))
+                        .map((s) => {
+                          const serviceDate = parseYMDLocal(s.date);
+                          return serviceDate ? formatServiceTitleForDate(serviceDate, s.title) : s.title;
+                        });
+                    })()
+                  : [];
 
                 return (
                   <div
@@ -691,10 +730,16 @@ export default function BandCalendarMonth() {
                     ) : null}
 
                     {!svc && isRehearsal ? (
-                      <div className="absolute bottom-0 left-0 right-0 p-1 pointer-events-none">
-                        <div className="w-full text-center text-[10px] font-semibold whitespace-nowrap border border-orange-500 bg-orange-500 text-white rounded-sm py-1">
-                          Rehearsal
-                        </div>
+                      <div className="mt-2 space-y-1 rounded-sm border border-orange-500 bg-orange-500/95 px-2 py-1 text-white">
+                        <div className="w-full text-center text-[10px] font-semibold">Rehearsal</div>
+                        {rehearsalServiceLines.map((line, idx) => (
+                          <div
+                            key={`${key}-export-rehearsal-service-${idx}`}
+                            className="text-[10px] font-semibold leading-snug"
+                          >
+                            {line}
+                          </div>
+                        ))}
                       </div>
                     ) : null}
                   </div>
