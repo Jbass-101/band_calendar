@@ -44,6 +44,12 @@ export default function Home() {
               >
                 Contributions
               </Link>
+              <Link
+                href="/admin"
+                className="inline-flex items-center rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white/80 dark:bg-zinc-900/60 px-3 py-1.5 text-xs sm:text-sm font-medium text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              >
+                Admin
+              </Link>
             </div>
           </div>
         </header>

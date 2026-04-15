@@ -69,3 +69,24 @@ Captured notes to track after initial setlist foundation:
 - **Basic data constraints**: Prevent duplicate song names (or warn), and ensure URLs are valid YouTube/Spotify domains if desired.
 - **Performance/safety for growth**: If songs get large, paginate table or lazy-load lyrics modal content only on open.
 - **Export option (later)**: "Print setlist sheet" with ordered sections for vocalist + separate compact band view.
+
+## Admin Portal Notes
+
+Goal: provide basic non-Studio admin actions using the same auth session pattern used in Contributions.
+
+### Implemented (Phase 1)
+
+- New `/admin` page with lock/unlock using contributions auth cookie/session.
+- Basic "Add Song" form outside Studio.
+- Protected `POST /api/admin/songs` route that:
+  - requires valid contributions auth cookie
+  - auto-assigns next song number
+  - enforces duplicate name check
+  - validates YouTube/Spotify domains
+  - saves optional lyrics sections, notes, and active status
+
+### Planned next
+
+- Edit and archive songs from the admin page
+- Setlist create/edit tools outside Studio
+- Roster management outside Studio
