@@ -105,6 +105,35 @@ export const service = defineType({
       validation: (rule) => rule.required(),
     }),
     defineField({
+      name: "notes",
+      title: "Custom Notes",
+      description: "Optional bullet-point notes shown below the service title.",
+      type: "array",
+      of: [{ type: "string" }],
+    }),
+    defineField({
+      name: "variant",
+      title: "Card Color",
+      description: "Optional highlight color for this service card.",
+      type: "string",
+      initialValue: "default",
+      options: {
+        list: [
+          { title: "Default", value: "default" },
+          { title: "Blue", value: "blue" },
+          { title: "Green", value: "green" },
+        ],
+        layout: "radio",
+      },
+    }),
+    defineField({
+      name: "showBandDetails",
+      title: "Show instrumentalists and uniform",
+      description: "Disable this for services that should only show title/notes.",
+      type: "boolean",
+      initialValue: true,
+    }),
+    defineField({
       name: "uniform",
       title: "Uniform",
       type: "string",

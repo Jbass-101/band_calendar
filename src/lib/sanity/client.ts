@@ -8,6 +8,9 @@ export type MusicianAssignment = {
 export type Service = {
   date: string; // "YYYY-MM-DD"
   title: string;
+  notes: string[];
+  variant: "default" | "blue" | "green";
+  showBandDetails: boolean;
   uniform: string;
   uniformWomen: string | null;
   uniformMen: string | null;
@@ -61,6 +64,9 @@ export async function fetchServicesForRange(
   const query = `*[_type == "service" && date >= $from && date <= $to]{
     title,
     date,
+    notes,
+    variant,
+    showBandDetails,
     uniform,
     uniformWomen,
     uniformMen,
@@ -79,6 +85,9 @@ export async function fetchServicesForRange(
     Array<{
       title: string;
       date: string;
+      notes?: Array<string | null> | null;
+      variant?: string | null;
+      showBandDetails?: boolean | null;
       uniform?: string | null;
       uniformWomen?: string | null;
       uniformMen?: string | null;
@@ -104,10 +113,27 @@ export async function fetchServicesForRange(
       .map((n) => (typeof n === "string" ? n.trim() : ""))
       .filter((n) => n.length > 0);
   };
+  const normalizeNotes = (value: Array<string | null> | null | undefined): string[] => {
+    if (!Array.isArray(value)) return [];
+    return value
+      .map((n) => (typeof n === "string" ? n.trim() : ""))
+      .filter((n) => n.length > 0);
+  };
+  const normalizeVariant = (value: unknown): "default" | "blue" | "green" => {
+    if (value === "blue" || value === "green" || value === "default") return value;
+    return "default";
+  };
+  const normalizeShowBandDetails = (value: unknown): boolean => {
+    if (typeof value === "boolean") return value;
+    return true;
+  };
 
   return raw.map((s) => ({
     date: s.date,
     title: s.title,
+    notes: normalizeNotes(s.notes),
+    variant: normalizeVariant(s.variant),
+    showBandDetails: normalizeShowBandDetails(s.showBandDetails),
     uniform: normalizeUniformValue(s.uniform) ?? "Smart Casual",
     uniformWomen: normalizeUniformValue(s.uniformWomen),
     uniformMen: normalizeUniformValue(s.uniformMen),

@@ -110,6 +110,24 @@ function formatExportGeneratedAt(d: Date): string {
   }).format(d);
 }
 
+function getServiceCardClass(service: Service | undefined, isPast: boolean): string {
+  if (isPast) return "border-zinc-200 dark:border-zinc-800 bg-zinc-100/50 dark:bg-black/30 opacity-70";
+  if (!service || service.variant === "default") {
+    return "border-zinc-200/90 dark:border-zinc-800/90 bg-white/95 dark:bg-zinc-900/50";
+  }
+  if (service.variant === "blue") {
+    return "border-sky-300/90 dark:border-sky-800/80 bg-sky-50/85 dark:bg-sky-950/30";
+  }
+  return "border-emerald-300/90 dark:border-emerald-800/80 bg-emerald-50/85 dark:bg-emerald-950/30";
+}
+
+function getServiceExportCardClass(service: Service | undefined, isPast: boolean): string {
+  if (isPast) return "border-zinc-200 bg-zinc-50 opacity-70";
+  if (!service || service.variant === "default") return "border-zinc-200 bg-white";
+  if (service.variant === "blue") return "border-sky-300 bg-sky-50";
+  return "border-emerald-300 bg-emerald-50";
+}
+
 export default function BandCalendarMonth() {
   const [cursorMonth, setCursorMonth] = useState(() => new Date());
   const [services, setServices] = useState<Service[]>([]);
@@ -447,9 +465,7 @@ export default function BandCalendarMonth() {
                 className={[
                   "min-h-28 rounded-xl border p-2.5 relative overflow-hidden shadow-sm transition-all duration-200",
                   "hover:-translate-y-0.5 hover:shadow-md",
-                  isPast
-                    ? "border-zinc-200 dark:border-zinc-800 bg-zinc-100/50 dark:bg-black/30 opacity-70"
-                    : "border-zinc-200/90 dark:border-zinc-800/90 bg-white/95 dark:bg-zinc-900/50",
+                  getServiceCardClass(svc, isPast),
                 ].join(" ")}
               >
                 {isOverlap ? (
@@ -472,65 +488,78 @@ export default function BandCalendarMonth() {
                     <div className="text-xs font-semibold tracking-tight truncate text-zinc-900 dark:text-zinc-100">
                       {formatServiceTitleForDate(date, svc.title)}
                     </div>
-                    <div className="mt-1.5 space-y-1">
-                      {ROLE_ORDER.map((role) => {
-                        const assignment = svc.assignments.find((a) => a.role === role);
-                        const names = Array.isArray(assignment?.musicianNames)
-                          ? assignment.musicianNames.filter((n) => typeof n === "string" && n.trim().length > 0)
-                          : [];
-                        const displayNames = names.join(" | ");
-                        const hasName = displayNames.length > 0;
-                        const lineClass = ROLE_MOBILE_LINE_CLASS[role];
-                        const RoleIcon = ROLE_MOBILE_ICON[role];
+                    {svc.notes.length > 0 ? (
+                      <ul className="mt-1 list-disc pl-4 space-y-0.5 text-[10px] leading-snug text-zinc-700 dark:text-zinc-200">
+                        {svc.notes.map((note, idx) => (
+                          <li key={`${key}-note-${idx}`} className="break-words">
+                            {note}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                    {svc.showBandDetails ? (
+                      <>
+                        <div className="mt-1.5 space-y-1">
+                          {ROLE_ORDER.map((role) => {
+                            const assignment = svc.assignments.find((a) => a.role === role);
+                            const names = Array.isArray(assignment?.musicianNames)
+                              ? assignment.musicianNames.filter((n) => typeof n === "string" && n.trim().length > 0)
+                              : [];
+                            const displayNames = names.join(" | ");
+                            const hasName = displayNames.length > 0;
+                            const lineClass = ROLE_MOBILE_LINE_CLASS[role];
+                            const RoleIcon = ROLE_MOBILE_ICON[role];
 
-                        return (
-                          <div key={role} className="min-w-0">
+                            return (
+                              <div key={role} className="min-w-0">
+                                <div className="inline-flex min-w-0 items-center gap-1.5">
+                                  <RoleIcon className={["h-3.5 w-3.5 shrink-0", lineClass].join(" ")} aria-hidden />
+                                  <span className={["text-[11px] font-medium shrink-0", lineClass].join(" ")}>:</span>
+                                  <span
+                                    className={[
+                                      "text-[11px] truncate block min-w-0",
+                                      lineClass,
+                                      !hasName ? "font-semibold" : "",
+                                    ].join(" ")}
+                                  >
+                                      {hasName ? displayNames : "—"}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        <div className="mt-2 border-t border-zinc-200/80 dark:border-zinc-800/80 pt-2">
+                          {svc.uniformWomen && svc.uniformMen ? (
+                            <div className="space-y-1">
+                              <div className="inline-flex min-w-0 items-center gap-1.5">
+                                <Venus className="h-3.5 w-3.5 shrink-0 text-zinc-600 dark:text-zinc-300" aria-hidden />
+                                <span className="text-[11px] font-medium shrink-0 text-zinc-600 dark:text-zinc-300">:</span>
+                                <span className="text-[11px] truncate block min-w-0 text-zinc-700 dark:text-zinc-200">
+                                  {svc.uniformWomen}
+                                </span>
+                              </div>
+                              <div className="inline-flex min-w-0 items-center gap-1.5">
+                                <Mars className="h-3.5 w-3.5 shrink-0 text-zinc-600 dark:text-zinc-300" aria-hidden />
+                                <span className="text-[11px] font-medium shrink-0 text-zinc-600 dark:text-zinc-300">:</span>
+                                <span className="text-[11px] truncate block min-w-0 text-zinc-700 dark:text-zinc-200">
+                                  {svc.uniformMen}
+                                </span>
+                              </div>
+                            </div>
+                          ) : (
                             <div className="inline-flex min-w-0 items-center gap-1.5">
-                              <RoleIcon className={["h-3.5 w-3.5 shrink-0", lineClass].join(" ")} aria-hidden />
-                              <span className={["text-[11px] font-medium shrink-0", lineClass].join(" ")}>:</span>
-                              <span
-                                className={[
-                                  "text-[11px] truncate block min-w-0",
-                                  lineClass,
-                                  !hasName ? "font-semibold" : "",
-                                ].join(" ")}
-                              >
-                                  {hasName ? displayNames : "—"}
+                              <Shirt className="h-3.5 w-3.5 shrink-0 text-zinc-600 dark:text-zinc-300" aria-hidden />
+                              <span className="text-[11px] font-medium shrink-0 text-zinc-600 dark:text-zinc-300">:</span>
+                              <span className="text-[11px] truncate block min-w-0 text-zinc-700 dark:text-zinc-200">
+                                {svc.uniform}
                               </span>
                             </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    <div className="mt-2 border-t border-zinc-200/80 dark:border-zinc-800/80 pt-2">
-                      {svc.uniformWomen && svc.uniformMen ? (
-                        <div className="space-y-1">
-                          <div className="inline-flex min-w-0 items-center gap-1.5">
-                            <Venus className="h-3.5 w-3.5 shrink-0 text-zinc-600 dark:text-zinc-300" aria-hidden />
-                            <span className="text-[11px] font-medium shrink-0 text-zinc-600 dark:text-zinc-300">:</span>
-                            <span className="text-[11px] truncate block min-w-0 text-zinc-700 dark:text-zinc-200">
-                              {svc.uniformWomen}
-                            </span>
-                          </div>
-                          <div className="inline-flex min-w-0 items-center gap-1.5">
-                            <Mars className="h-3.5 w-3.5 shrink-0 text-zinc-600 dark:text-zinc-300" aria-hidden />
-                            <span className="text-[11px] font-medium shrink-0 text-zinc-600 dark:text-zinc-300">:</span>
-                            <span className="text-[11px] truncate block min-w-0 text-zinc-700 dark:text-zinc-200">
-                              {svc.uniformMen}
-                            </span>
-                          </div>
+                          )}
                         </div>
-                      ) : (
-                        <div className="inline-flex min-w-0 items-center gap-1.5">
-                          <Shirt className="h-3.5 w-3.5 shrink-0 text-zinc-600 dark:text-zinc-300" aria-hidden />
-                          <span className="text-[11px] font-medium shrink-0 text-zinc-600 dark:text-zinc-300">:</span>
-                          <span className="text-[11px] truncate block min-w-0 text-zinc-700 dark:text-zinc-200">
-                            {svc.uniform}
-                          </span>
-                        </div>
-                      )}
-                    </div>
+                      </>
+                    ) : null}
                     {isOverlap ? <div className="h-6 shrink-0" aria-hidden /> : null}
                   </div>
                 ) : null}
@@ -639,9 +668,7 @@ export default function BandCalendarMonth() {
                     key={key}
                     className={[
                       "min-h-28 rounded-md border p-3 relative overflow-visible min-w-0",
-                      isPast
-                        ? "border-zinc-200 bg-zinc-50 opacity-70"
-                        : "border-zinc-200 bg-white",
+                      getServiceExportCardClass(svc, isPast),
                     ].join(" ")}
                   >
                     {isOverlap ? (
@@ -666,65 +693,78 @@ export default function BandCalendarMonth() {
                         <div className="text-xs font-semibold break-words leading-snug">
                           {formatServiceTitleForDate(date, svc.title)}
                         </div>
-                        <div className="mt-2 space-y-1">
-                          {ROLE_ORDER.map((role) => {
-                            const assignment = svc.assignments.find((a) => a.role === role);
-                            const names = Array.isArray(assignment?.musicianNames)
-                              ? assignment.musicianNames.filter(
-                                  (n) => typeof n === "string" && n.trim().length > 0
-                                )
-                              : [];
-                            const displayNames = names.join(" | ");
-                            const hasName = displayNames.length > 0;
-                            const lineClass = ROLE_EXPORT_LINE_CLASS[role];
-                            const RoleIcon = ROLE_MOBILE_ICON[role];
+                        {svc.notes.length > 0 ? (
+                          <ul className="mt-1 list-disc pl-4 space-y-0.5 text-[10px] leading-snug text-zinc-700">
+                            {svc.notes.map((note, idx) => (
+                              <li key={`${key}-export-note-${idx}`} className="break-words">
+                                {note}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : null}
+                        {svc.showBandDetails ? (
+                          <>
+                            <div className="mt-2 space-y-1">
+                              {ROLE_ORDER.map((role) => {
+                                const assignment = svc.assignments.find((a) => a.role === role);
+                                const names = Array.isArray(assignment?.musicianNames)
+                                  ? assignment.musicianNames.filter(
+                                      (n) => typeof n === "string" && n.trim().length > 0
+                                    )
+                                  : [];
+                                const displayNames = names.join(" | ");
+                                const hasName = displayNames.length > 0;
+                                const lineClass = ROLE_EXPORT_LINE_CLASS[role];
+                                const RoleIcon = ROLE_MOBILE_ICON[role];
 
-                            return (
-                              <div key={role} className="flex w-full min-w-0 items-start gap-1.5">
-                                <RoleIcon className={["h-3.5 w-3.5 shrink-0 mt-0.5", lineClass].join(" ")} aria-hidden />
-                                <span className={["text-[11px] font-semibold shrink-0 pt-0.5", lineClass].join(" ")}>:</span>
-                                <span
-                                  className={[
-                                    "text-[11px] min-w-0 flex-1 break-words leading-snug",
-                                    lineClass,
-                                    !hasName ? "font-semibold" : "",
-                                  ].join(" ")}
-                                >
-                                  {hasName ? displayNames : "—"}
-                                </span>
-                              </div>
-                            );
-                          })}
-                        </div>
+                                return (
+                                  <div key={role} className="flex w-full min-w-0 items-start gap-1.5">
+                                    <RoleIcon className={["h-3.5 w-3.5 shrink-0 mt-0.5", lineClass].join(" ")} aria-hidden />
+                                    <span className={["text-[11px] font-semibold shrink-0 pt-0.5", lineClass].join(" ")}>:</span>
+                                    <span
+                                      className={[
+                                        "text-[11px] min-w-0 flex-1 break-words leading-snug",
+                                        lineClass,
+                                        !hasName ? "font-semibold" : "",
+                                      ].join(" ")}
+                                    >
+                                      {hasName ? displayNames : "—"}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
 
-                        <div className="mt-2 border-t border-zinc-200 pt-2">
-                          {svc.uniformWomen && svc.uniformMen ? (
-                            <div className="space-y-2">
-                              <div className="flex min-w-0 items-start gap-1.5">
-                                <Venus className="h-3.5 w-3.5 shrink-0 mt-0.5 text-zinc-700" aria-hidden />
-                                <span className="text-[11px] font-semibold shrink-0 text-zinc-700 pt-0.5">:</span>
-                                <span className="text-[11px] min-w-0 flex-1 break-words leading-snug text-zinc-800">
-                                  {svc.uniformWomen}
-                                </span>
-                              </div>
-                              <div className="flex min-w-0 items-start gap-1.5">
-                                <Mars className="h-3.5 w-3.5 shrink-0 mt-0.5 text-zinc-700" aria-hidden />
-                                <span className="text-[11px] font-semibold shrink-0 text-zinc-700 pt-0.5">:</span>
-                                <span className="text-[11px] min-w-0 flex-1 break-words leading-snug text-zinc-800">
-                                  {svc.uniformMen}
-                                </span>
-                              </div>
+                            <div className="mt-2 border-t border-zinc-200 pt-2">
+                              {svc.uniformWomen && svc.uniformMen ? (
+                                <div className="space-y-2">
+                                  <div className="flex min-w-0 items-start gap-1.5">
+                                    <Venus className="h-3.5 w-3.5 shrink-0 mt-0.5 text-zinc-700" aria-hidden />
+                                    <span className="text-[11px] font-semibold shrink-0 text-zinc-700 pt-0.5">:</span>
+                                    <span className="text-[11px] min-w-0 flex-1 break-words leading-snug text-zinc-800">
+                                      {svc.uniformWomen}
+                                    </span>
+                                  </div>
+                                  <div className="flex min-w-0 items-start gap-1.5">
+                                    <Mars className="h-3.5 w-3.5 shrink-0 mt-0.5 text-zinc-700" aria-hidden />
+                                    <span className="text-[11px] font-semibold shrink-0 text-zinc-700 pt-0.5">:</span>
+                                    <span className="text-[11px] min-w-0 flex-1 break-words leading-snug text-zinc-800">
+                                      {svc.uniformMen}
+                                    </span>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="flex min-w-0 items-start gap-1.5">
+                                  <Shirt className="h-3.5 w-3.5 shrink-0 mt-0.5 text-zinc-700" aria-hidden />
+                                  <span className="text-[11px] font-semibold shrink-0 text-zinc-700 pt-0.5">:</span>
+                                  <span className="text-[11px] min-w-0 flex-1 break-words leading-snug text-zinc-800">
+                                    {svc.uniform}
+                                  </span>
+                                </div>
+                              )}
                             </div>
-                          ) : (
-                            <div className="flex min-w-0 items-start gap-1.5">
-                              <Shirt className="h-3.5 w-3.5 shrink-0 mt-0.5 text-zinc-700" aria-hidden />
-                              <span className="text-[11px] font-semibold shrink-0 text-zinc-700 pt-0.5">:</span>
-                              <span className="text-[11px] min-w-0 flex-1 break-words leading-snug text-zinc-800">
-                                {svc.uniform}
-                              </span>
-                            </div>
-                          )}
-                        </div>
+                          </>
+                        ) : null}
                         {isOverlap ? <div className="h-6 shrink-0" aria-hidden /> : null}
                       </div>
                     ) : null}
