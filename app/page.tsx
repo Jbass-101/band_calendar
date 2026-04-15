@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import BandCalendarMonth from "../src/components/BandCalendarMonth";
 
 export default function Home() {
@@ -24,6 +25,26 @@ export default function Home() {
             <p className="mt-1 text-left text-sm sm:text-base text-zinc-600 dark:text-zinc-300">
               Monthly schedule for services and rehearsals
             </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Link
+                href="/songs"
+                className="inline-flex items-center rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white/80 dark:bg-zinc-900/60 px-3 py-1.5 text-xs sm:text-sm font-medium text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              >
+                Song Repository
+              </Link>
+              <Link
+                href="/setlists"
+                className="inline-flex items-center rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white/80 dark:bg-zinc-900/60 px-3 py-1.5 text-xs sm:text-sm font-medium text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              >
+                Setlists
+              </Link>
+              <Link
+                href="/contributions"
+                className="inline-flex items-center rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white/80 dark:bg-zinc-900/60 px-3 py-1.5 text-xs sm:text-sm font-medium text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              >
+                Contributions
+              </Link>
+            </div>
           </div>
         </header>
         <BandCalendarMonth />

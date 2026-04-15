@@ -17,6 +17,49 @@ export type Service = {
   assignments: MusicianAssignment[];
 };
 
+export type Song = {
+  _id: string;
+  number: number;
+  name: string;
+  genre: "worship" | "praise" | "other";
+  themes: string[];
+  tags: string[];
+  youtubeUrl: string | null;
+  spotifyUrl: string | null;
+  lyricsSections: {
+    intro: string | null;
+    hook: string | null;
+    verse1: string | null;
+    verse2: string | null;
+    preChorus: string | null;
+    chorus: string | null;
+    bridge: string | null;
+    outro: string | null;
+    ending: string | null;
+  };
+  notes: string | null;
+  active: boolean;
+};
+
+export type SetlistSongItem = {
+  _key: string;
+  songId: string | null;
+  songNumber: number | null;
+  songName: string | null;
+  songGenre: Song["genre"] | null;
+  note: string | null;
+};
+
+export type Setlist = {
+  _id: string;
+  title: string | null;
+  date: string;
+  serviceType: "sunday_morning" | "sunday_evening" | "midweek" | "special";
+  notes: string | null;
+  active: boolean;
+  songs: SetlistSongItem[];
+};
+
 const ROLE_ORDER = [
   "Lead Vocal",
   "Lead Keyboard",
@@ -239,5 +282,204 @@ export async function fetchRehearsalsForRange(
   }
 
   return Array.from(occurrences).sort();
+}
+
+export async function fetchSongs(): Promise<Song[]> {
+  const query = `*[_type == "song"] | order(number asc, name asc){
+    _id,
+    number,
+    name,
+    genre,
+    "themes": themes[]->title,
+    "tags": tags[]->title,
+    youtubeUrl,
+    spotifyUrl,
+    lyricsSections{
+      intro,
+      hook,
+      verse1,
+      verse2,
+      preChorus,
+      chorus,
+      bridge,
+      outro,
+      ending
+    },
+    notes,
+    active
+  }`;
+
+  const client = getSanityClient();
+  const raw = await client.fetch<
+    Array<{
+      _id: string;
+      number?: number | null;
+      name?: string | null;
+      genre?: string | null;
+      themes?: Array<string | null> | null;
+      tags?: Array<string | null> | null;
+      youtubeUrl?: string | null;
+      spotifyUrl?: string | null;
+      lyricsSections?: {
+        intro?: string | null;
+        hook?: string | null;
+        verse1?: string | null;
+        verse2?: string | null;
+        preChorus?: string | null;
+        chorus?: string | null;
+        bridge?: string | null;
+        outro?: string | null;
+        ending?: string | null;
+      } | null;
+      notes?: string | null;
+      active?: boolean | null;
+    }>
+  >(query);
+
+  const normalizeString = (value: unknown): string | null => {
+    if (typeof value !== "string") return null;
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  };
+
+  const normalizeStringArray = (value: Array<string | null> | null | undefined): string[] => {
+    if (!Array.isArray(value)) return [];
+    return value
+      .map((item) => (typeof item === "string" ? item.trim() : ""))
+      .filter((item) => item.length > 0);
+  };
+
+  const normalizeGenre = (value: unknown): "worship" | "praise" | "other" => {
+    if (value === "worship" || value === "praise" || value === "other") return value;
+    return "other";
+  };
+  return raw
+    .map((song) => {
+      const number = typeof song.number === "number" ? song.number : null;
+      const name = normalizeString(song.name);
+      if (number === null || name === null) return null;
+
+      return {
+        _id: song._id,
+        number,
+        name,
+        genre: normalizeGenre(song.genre),
+        themes: normalizeStringArray(song.themes),
+        tags: normalizeStringArray(song.tags),
+        youtubeUrl: normalizeString(song.youtubeUrl),
+        spotifyUrl: normalizeString(song.spotifyUrl),
+        lyricsSections: {
+          intro: normalizeString(song.lyricsSections?.intro),
+          hook: normalizeString(song.lyricsSections?.hook),
+          verse1: normalizeString(song.lyricsSections?.verse1),
+          verse2: normalizeString(song.lyricsSections?.verse2),
+          preChorus: normalizeString(song.lyricsSections?.preChorus),
+          chorus: normalizeString(song.lyricsSections?.chorus),
+          bridge: normalizeString(song.lyricsSections?.bridge),
+          outro: normalizeString(song.lyricsSections?.outro),
+          ending: normalizeString(song.lyricsSections?.ending),
+        },
+        notes: normalizeString(song.notes),
+        active: song.active !== false,
+      } satisfies Song;
+    })
+    .filter((song): song is Song => Boolean(song));
+}
+
+export async function fetchSetlists(): Promise<Setlist[]> {
+  const query = `*[_type == "setlist"] | order(date desc){
+    _id,
+    title,
+    date,
+    serviceType,
+    notes,
+    active,
+    "songs": songs[]{
+      _key,
+      note,
+      "songId": song._ref,
+      "songNumber": song->number,
+      "songName": song->name,
+      "songGenre": song->genre
+    }
+  }`;
+
+  const client = getSanityClient();
+  const raw = await client.fetch<
+    Array<{
+      _id: string;
+      title?: string | null;
+      date?: string | null;
+      serviceType?: string | null;
+      notes?: string | null;
+      active?: boolean | null;
+      songs?: Array<{
+        _key?: string | null;
+        note?: string | null;
+        songId?: string | null;
+        songNumber?: number | null;
+        songName?: string | null;
+        songGenre?: string | null;
+      } | null> | null;
+    }>
+  >(query);
+
+  const normalizeString = (value: unknown): string | null => {
+    if (typeof value !== "string") return null;
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  };
+
+  const normalizeServiceType = (
+    value: unknown
+  ): "sunday_morning" | "sunday_evening" | "midweek" | "special" => {
+    if (
+      value === "sunday_morning" ||
+      value === "sunday_evening" ||
+      value === "midweek" ||
+      value === "special"
+    ) {
+      return value;
+    }
+    return "special";
+  };
+
+  const normalizeSongGenre = (value: unknown): Song["genre"] | null => {
+    if (value === "worship" || value === "praise" || value === "other") return value;
+    return null;
+  };
+
+  return raw
+    .map((setlist) => {
+      const date = normalizeString(setlist.date);
+      if (!date) return null;
+
+      const songs = Array.isArray(setlist.songs)
+        ? setlist.songs
+            .map((item, idx) => {
+              if (!item) return null;
+              return {
+                _key: normalizeString(item._key) ?? `row-${idx}`,
+                songId: normalizeString(item.songId),
+                songNumber: typeof item.songNumber === "number" ? item.songNumber : null,
+                songName: normalizeString(item.songName),
+                songGenre: normalizeSongGenre(item.songGenre),
+                note: normalizeString(item.note),
+              } satisfies SetlistSongItem;
+            })
+            .filter((item): item is SetlistSongItem => Boolean(item))
+        : [];
+
+      return {
+        _id: setlist._id,
+        title: normalizeString(setlist.title),
+        date,
+        serviceType: normalizeServiceType(setlist.serviceType),
+        notes: normalizeString(setlist.notes),
+        active: setlist.active !== false,
+        songs,
+      } satisfies Setlist;
+    })
+    .filter((item): item is Setlist => Boolean(item));
 }
 
