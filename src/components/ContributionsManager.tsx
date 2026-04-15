@@ -313,6 +313,13 @@ function ContributionsStatementExport({ report }: { report: ReportPayload }) {
           </table>
         )}
       </div>
+
+      <div className="pt-3 border-t border-zinc-200 text-center text-[11px] text-zinc-600">
+        Powered by{" "}
+        <a href="https://extrabrains.co.za/" className="font-semibold text-emerald-600 underline">
+          Extra Brains
+        </a>
+      </div>
     </div>
   );
 }

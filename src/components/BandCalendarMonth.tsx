@@ -750,6 +750,12 @@ export default function BandCalendarMonth() {
             <div className="mt-4 pt-3 border-t border-zinc-200 text-center text-[11px] text-zinc-600">
               Generated: {formatExportGeneratedAt(exportGeneratedAt ?? new Date())}
             </div>
+            <div className="mt-2 text-center text-[11px] text-zinc-600">
+              Powered by{" "}
+              <a href="https://extrabrains.co.za/" className="font-semibold text-emerald-600 underline">
+                Extra Brains
+              </a>
+            </div>
           </div>
         </div>
       ) : null}
