@@ -5,10 +5,31 @@ import { fetchSongs } from "@/src/lib/sanity/client";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Songs repository",
-  description: "Repository of worship and praise songs for setlist preparation.",
+  title: "Songs repository | Last Harvest Worship Team",
+  description: "Repository of worship and praise songs for Last Harvest Worship Team setlist preparation.",
   alternates: {
     canonical: "/songs",
+  },
+  openGraph: {
+    title: "Songs repository | Last Harvest Worship Team",
+    description: "Repository of worship and praise songs for Last Harvest Worship Team setlist preparation.",
+    url: "/songs",
+    siteName: "Last Harvest Worship Team",
+    type: "website",
+    images: [
+      {
+        url: "/contributions-logo.png",
+        width: 512,
+        height: 512,
+        alt: "Last Harvest Worship Team",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Songs repository | Last Harvest Worship Team",
+    description: "Repository of worship and praise songs for Last Harvest Worship Team setlist preparation.",
+    images: ["/contributions-logo.png"],
   },
 };
 

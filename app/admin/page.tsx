@@ -6,10 +6,31 @@ import { getContribAuthCookieName, isContribSessionValidFromCookie } from "@/src
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Admin",
-  description: "Basic admin actions outside Sanity Studio.",
+  title: "Admin | Last Harvest Worship Team",
+  description: "Basic Last Harvest Worship Team admin actions outside Sanity Studio.",
   alternates: {
     canonical: "/admin",
+  },
+  openGraph: {
+    title: "Admin | Last Harvest Worship Team",
+    description: "Basic Last Harvest Worship Team admin actions outside Sanity Studio.",
+    url: "/admin",
+    siteName: "Last Harvest Worship Team",
+    type: "website",
+    images: [
+      {
+        url: "/contributions-logo.png",
+        width: 512,
+        height: 512,
+        alt: "Last Harvest Worship Team",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Admin | Last Harvest Worship Team",
+    description: "Basic Last Harvest Worship Team admin actions outside Sanity Studio.",
+    images: ["/contributions-logo.png"],
   },
 };
 
