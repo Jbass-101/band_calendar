@@ -46,7 +46,7 @@ export default function SiteNavigation({ authorized }: SiteNavigationProps) {
         method: "DELETE",
         credentials: "include",
       });
-      router.push("/login");
+      router.push("/");
       router.refresh();
     } finally {
       setSigningOut(false);
