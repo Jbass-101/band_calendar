@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { CONTRIBUTION_LOG_EVENT_TYPES } from "@/src/lib/contributionLogConstants";
 import { formatIsoDateTimeToDisplay, formatIsoDateToDDMMYYYY, formatYearMonthToDDMMYYYY } from "@/src/lib/formatDate";
 import { normalizeWhatsappForStorage, whatsappDigitsForWaMe } from "@/src/lib/whatsappNumber";
+import { BRANDING } from "@/src/lib/branding";
 
 type Member = {
   _id: string;
@@ -156,8 +157,8 @@ function ContributionsStatementExport({ report }: { report: ReportPayload }) {
       <div>
         <div className="flex items-center gap-3">
           <Image
-            src="/contributions-logo.png"
-            alt="Last Harvest Mission logo"
+            src={BRANDING.main.logoSrc}
+            alt={BRANDING.main.logoAlt}
             width={44}
             height={44}
             className="h-11 w-11 rounded-full object-cover"
@@ -687,23 +688,6 @@ export default function ContributionsManager({ authorized }: { authorized: boole
     }
   }
 
-  async function handleSignOut() {
-    await fetch("/api/contributions/auth", {
-      method: "DELETE",
-      credentials: "include",
-    });
-    setIsAuthed(false);
-    setMembers([]);
-    setContributions([]);
-    setExpenses([]);
-    setTotalCollected(0);
-    setExpenseTotal(0);
-    setNetAfterExpenses(0);
-    setYtdTotalCollected(0);
-    setYtdExpenseTotal(0);
-    setYtdNetAfterExpenses(0);
-  }
-
   async function handleExpenseSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setExpenseSaving(true);
@@ -992,11 +976,11 @@ export default function ContributionsManager({ authorized }: { authorized: boole
   return (
     <section className="space-y-4">
       <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white/90 dark:bg-zinc-950/70 p-4 sm:p-5">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
           <div className="flex items-center gap-3">
             <Image
-              src="/contributions-logo.png"
-              alt="Last Harvest Mission logo"
+              src={BRANDING.main.logoSrc}
+              alt={BRANDING.main.logoAlt}
               width={44}
               height={44}
               className="h-11 w-11 rounded-full object-cover"
@@ -1011,13 +995,6 @@ export default function ContributionsManager({ authorized }: { authorized: boole
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={handleSignOut}
-            className="rounded-lg border border-zinc-300 dark:border-zinc-700 px-3 py-1.5 text-sm text-zinc-700 dark:text-zinc-200"
-          >
-            Sign out
-          </button>
         </div>
         <div className="mt-4 flex flex-wrap gap-1 rounded-lg border border-zinc-200 dark:border-zinc-700 p-1">
           {(

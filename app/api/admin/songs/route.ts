@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { getContribAuthCookieName, isContribSessionValidFromCookie } from "@/src/lib/sanity/contributionsAuth";
+import { fetchSongs } from "@/src/lib/sanity/client";
 import { getSanityWriteClient } from "@/src/lib/sanity/sanityWriteClient";
 
 type CreateSongBody = {
+  songId?: string;
   name?: string;
   genre?: "worship" | "praise" | "other";
   youtubeUrl?: string | null;
@@ -21,6 +23,15 @@ type CreateSongBody = {
     ending?: string | null;
   };
 };
+
+async function isAuthorizedFromRequest(req: Request): Promise<boolean> {
+  const cookieHeader = req.headers.get("cookie") ?? "";
+  const cookiePairs = cookieHeader.split(";").map((part) => part.trim());
+  const cookieName = getContribAuthCookieName();
+  const authCookie = cookiePairs.find((pair) => pair.startsWith(`${cookieName}=`));
+  const cookieValue = authCookie ? decodeURIComponent(authCookie.split("=")[1] ?? "") : undefined;
+  return isContribSessionValidFromCookie(cookieValue);
+}
 
 function normalizeString(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -45,50 +56,72 @@ function isAllowedHost(url: string, allowedHosts: string[]) {
   return allowedHosts.some((allowed) => host === allowed || host.endsWith(`.${allowed}`));
 }
 
-export async function POST(req: Request) {
-  const cookieHeader = req.headers.get("cookie") ?? "";
-  const cookiePairs = cookieHeader.split(";").map((part) => part.trim());
-  const cookieName = getContribAuthCookieName();
-  const authCookie = cookiePairs.find((pair) => pair.startsWith(`${cookieName}=`));
-  const cookieValue = authCookie ? decodeURIComponent(authCookie.split("=")[1] ?? "") : undefined;
-  const isAuthorized = await isContribSessionValidFromCookie(cookieValue);
-
-  if (!isAuthorized) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const body = (await req.json().catch(() => ({}))) as CreateSongBody;
+function validateSongBody(body: CreateSongBody) {
   const name = normalizeString(body.name);
   const genre = body.genre;
 
   if (!name) {
-    return NextResponse.json({ error: "Song name is required." }, { status: 400 });
+    return { error: "Song name is required." };
   }
   if (genre !== "worship" && genre !== "praise" && genre !== "other") {
-    return NextResponse.json({ error: "Genre must be worship, praise, or other." }, { status: 400 });
+    return { error: "Genre must be worship, praise, or other." };
   }
 
   const youtubeUrl = normalizeUrl(body.youtubeUrl);
   if (body.youtubeUrl != null && body.youtubeUrl !== "" && !youtubeUrl) {
-    return NextResponse.json({ error: "YouTube URL is invalid." }, { status: 400 });
+    return { error: "YouTube URL is invalid." };
   }
   if (youtubeUrl && !isAllowedHost(youtubeUrl, ["youtube.com", "youtu.be"])) {
-    return NextResponse.json({ error: "Use a valid YouTube URL (youtube.com or youtu.be)." }, { status: 400 });
+    return { error: "Use a valid YouTube URL (youtube.com or youtu.be)." };
   }
 
   const spotifyUrl = normalizeUrl(body.spotifyUrl);
   if (body.spotifyUrl != null && body.spotifyUrl !== "" && !spotifyUrl) {
-    return NextResponse.json({ error: "Spotify URL is invalid." }, { status: 400 });
+    return { error: "Spotify URL is invalid." };
   }
   if (spotifyUrl && !isAllowedHost(spotifyUrl, ["spotify.com"])) {
-    return NextResponse.json({ error: "Use a valid Spotify URL (spotify.com)." }, { status: 400 });
+    return { error: "Use a valid Spotify URL (spotify.com)." };
+  }
+
+  return {
+    name,
+    genre,
+    youtubeUrl,
+    spotifyUrl,
+    notes: normalizeString(body.notes),
+    lyricsSections: body.lyricsSections ?? {},
+    active: body.active !== false,
+  };
+}
+
+export async function GET(req: Request) {
+  const isAuthorized = await isAuthorizedFromRequest(req);
+  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  try {
+    const songs = await fetchSongs();
+    return NextResponse.json({ songs }, { status: 200 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to load songs";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+export async function POST(req: Request) {
+  const isAuthorized = await isAuthorizedFromRequest(req);
+  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const body = (await req.json().catch(() => ({}))) as CreateSongBody;
+  const validated = validateSongBody(body);
+  if ("error" in validated) {
+    return NextResponse.json({ error: validated.error }, { status: 400 });
   }
 
   const client = getSanityWriteClient();
 
   const duplicateNameCount = await client.fetch<number>(
     `count(*[_type == "song" && name == $name])`,
-    { name }
+    { name: validated.name }
   );
   if (duplicateNameCount > 0) {
     return NextResponse.json({ error: "Song name already exists." }, { status: 409 });
@@ -99,16 +132,16 @@ export async function POST(req: Request) {
   );
   const number = (typeof currentMax === "number" ? currentMax : 0) + 1;
 
-  const lyricsSections = body.lyricsSections ?? {};
+  const lyricsSections = validated.lyricsSections;
 
   const created = await client.create({
     _type: "song",
     number,
-    name,
-    genre,
-    youtubeUrl: youtubeUrl ?? undefined,
-    spotifyUrl: spotifyUrl ?? undefined,
-    notes: normalizeString(body.notes) ?? undefined,
+    name: validated.name,
+    genre: validated.genre,
+    youtubeUrl: validated.youtubeUrl ?? undefined,
+    spotifyUrl: validated.spotifyUrl ?? undefined,
+    notes: validated.notes ?? undefined,
     lyricsSections: {
       intro: normalizeString(lyricsSections.intro) ?? undefined,
       verse1: normalizeString(lyricsSections.verse1) ?? undefined,
@@ -120,14 +153,115 @@ export async function POST(req: Request) {
       outro: normalizeString(lyricsSections.outro) ?? undefined,
       ending: normalizeString(lyricsSections.ending) ?? undefined,
     },
-    active: body.active !== false,
+    active: validated.active,
   });
 
   return NextResponse.json(
     {
       ok: true,
-      song: { _id: created._id, number, name, genre },
+      song: { _id: created._id, number, name: validated.name, genre: validated.genre },
     },
     { status: 201 }
   );
+}
+
+export async function PATCH(req: Request) {
+  const isAuthorized = await isAuthorizedFromRequest(req);
+  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const body = (await req.json().catch(() => ({}))) as CreateSongBody;
+  const songId = normalizeString(body.songId);
+  if (!songId) {
+    return NextResponse.json({ error: "Song id is required." }, { status: 400 });
+  }
+
+  const client = getSanityWriteClient();
+  const existing = await client.fetch<{ _id: string; name?: string | null } | null>(
+    `*[_type == "song" && _id == $songId][0]{_id, name}`,
+    { songId }
+  );
+  if (!existing?._id) {
+    return NextResponse.json({ error: "Song not found." }, { status: 404 });
+  }
+
+  const patch = client.patch(songId);
+  let touched = false;
+
+  if (body.name !== undefined || body.genre !== undefined || body.youtubeUrl !== undefined || body.spotifyUrl !== undefined || body.notes !== undefined || body.lyricsSections !== undefined) {
+    const validated = validateSongBody({
+      name: body.name,
+      genre: body.genre,
+      youtubeUrl: body.youtubeUrl,
+      spotifyUrl: body.spotifyUrl,
+      notes: body.notes,
+      lyricsSections: body.lyricsSections,
+      active: body.active,
+    });
+    if ("error" in validated) {
+      return NextResponse.json({ error: validated.error }, { status: 400 });
+    }
+
+    const duplicateNameCount = await client.fetch<number>(
+      `count(*[_type == "song" && name == $name && _id != $songId])`,
+      { name: validated.name, songId }
+    );
+    if (duplicateNameCount > 0) {
+      return NextResponse.json({ error: "Song name already exists." }, { status: 409 });
+    }
+
+    patch.set({
+      name: validated.name,
+      genre: validated.genre,
+      youtubeUrl: validated.youtubeUrl ?? undefined,
+      spotifyUrl: validated.spotifyUrl ?? undefined,
+      notes: validated.notes ?? undefined,
+      lyricsSections: {
+        intro: normalizeString(validated.lyricsSections.intro) ?? undefined,
+        verse1: normalizeString(validated.lyricsSections.verse1) ?? undefined,
+        verse2: normalizeString(validated.lyricsSections.verse2) ?? undefined,
+        preChorus: normalizeString(validated.lyricsSections.preChorus) ?? undefined,
+        chorus: normalizeString(validated.lyricsSections.chorus) ?? undefined,
+        hook: normalizeString(validated.lyricsSections.hook) ?? undefined,
+        bridge: normalizeString(validated.lyricsSections.bridge) ?? undefined,
+        outro: normalizeString(validated.lyricsSections.outro) ?? undefined,
+        ending: normalizeString(validated.lyricsSections.ending) ?? undefined,
+      },
+    });
+    touched = true;
+  }
+
+  if (body.active !== undefined) {
+    patch.set({ active: body.active !== false });
+    touched = true;
+  }
+
+  if (!touched) {
+    return NextResponse.json({ error: "No updates provided." }, { status: 400 });
+  }
+
+  await patch.commit();
+  return NextResponse.json({ ok: true }, { status: 200 });
+}
+
+export async function DELETE(req: Request) {
+  const isAuthorized = await isAuthorizedFromRequest(req);
+  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const body = (await req.json().catch(() => ({}))) as { songId?: string };
+  const songId = normalizeString(body.songId);
+  if (!songId) {
+    return NextResponse.json({ error: "Song id is required." }, { status: 400 });
+  }
+
+  const client = getSanityWriteClient();
+  const existing = await client.fetch<{ _id: string } | null>(
+    `*[_type == "song" && _id == $songId][0]{_id}`,
+    { songId }
+  );
+  if (!existing?._id) {
+    return NextResponse.json({ error: "Song not found." }, { status: 404 });
+  }
+
+  await client.delete(songId);
+  return NextResponse.json({ ok: true }, { status: 200 });
 }

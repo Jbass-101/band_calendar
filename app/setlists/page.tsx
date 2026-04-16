@@ -1,35 +1,36 @@
 import type { Metadata } from "next";
 import SetlistRepository from "@/src/components/SetlistRepository";
 import { fetchSetlists } from "@/src/lib/sanity/client";
+import { BRANDING } from "@/src/lib/branding";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Setlists | Last Harvest Worship Team",
-  description: "Service setlists with ordered songs for Last Harvest Worship Team rehearsal and planning.",
+  title: "Setlists | Last Harvest Choir",
+  description: "Service setlists with ordered songs for Last Harvest Choir rehearsal and planning.",
   alternates: {
     canonical: "/setlists",
   },
   openGraph: {
-    title: "Setlists | Last Harvest Worship Team",
-    description: "Service setlists with ordered songs for Last Harvest Worship Team rehearsal and planning.",
+    title: "Setlists | Last Harvest Choir",
+    description: "Service setlists with ordered songs for Last Harvest Choir rehearsal and planning.",
     url: "/setlists",
-    siteName: "Last Harvest Worship Team",
+    siteName: "Last Harvest Choir",
     type: "website",
     images: [
       {
-        url: "/contributions-logo.png",
+        url: BRANDING.main.logoSrc,
         width: 512,
         height: 512,
-        alt: "Last Harvest Worship Team",
+        alt: BRANDING.main.logoAlt,
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Setlists | Last Harvest Worship Team",
-    description: "Service setlists with ordered songs for Last Harvest Worship Team rehearsal and planning.",
-    images: ["/contributions-logo.png"],
+    title: "Setlists | Last Harvest Choir",
+    description: "Service setlists with ordered songs for Last Harvest Choir rehearsal and planning.",
+    images: [BRANDING.main.logoSrc],
   },
 };
 
