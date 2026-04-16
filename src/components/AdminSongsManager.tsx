@@ -7,6 +7,7 @@ import type { Song } from "@/src/lib/sanity/client";
 type AdminSongsManagerProps = {
   authorized: boolean;
   initialSongs: Song[];
+  embedded?: boolean;
 };
 
 type LyricsSectionsDraft = {
@@ -65,6 +66,8 @@ const LYRICS_FIELDS: Array<{ key: keyof LyricsSectionsDraft; label: string }> = 
   { key: "ending", label: "Ending" },
 ];
 
+const PAGE_SIZE = 20;
+
 function toDraft(song: Song): SongDraft {
   return {
     name: song.name,
@@ -87,11 +90,17 @@ function toDraft(song: Song): SongDraft {
   };
 }
 
-export default function AdminSongsManager({ authorized, initialSongs }: AdminSongsManagerProps) {
+export default function AdminSongsManager({
+  authorized,
+  initialSongs,
+  embedded = false,
+}: AdminSongsManagerProps) {
   void authorized;
 
   const [songs, setSongs] = useState<Song[]>(initialSongs);
   const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [creatingOpen, setCreatingOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [createDraft, setCreateDraft] = useState<SongDraft>(EMPTY_DRAFT);
 
@@ -107,11 +116,19 @@ export default function AdminSongsManager({ authorized, initialSongs }: AdminSon
     return songs.filter((song) => `${song.number} ${song.name} ${song.genre}`.toLowerCase().includes(q));
   }, [songs, query]);
 
+  const totalPages = Math.max(1, Math.ceil(visibleSongs.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pagedSongs = useMemo(() => {
+    const start = (safePage - 1) * PAGE_SIZE;
+    return visibleSongs.slice(start, start + PAGE_SIZE);
+  }, [visibleSongs, safePage]);
+
   async function refreshSongs() {
     const res = await fetch("/api/admin/songs", { credentials: "include" });
     const payload = (await res.json().catch(() => ({}))) as { error?: string; songs?: Song[] };
     if (!res.ok) throw new Error(payload.error ?? "Failed to load songs");
     setSongs(payload.songs ?? []);
+    setPage(1);
   }
 
   async function handleCreateSong(e: FormEvent<HTMLFormElement>) {
@@ -131,6 +148,7 @@ export default function AdminSongsManager({ authorized, initialSongs }: AdminSon
       if (!res.ok) throw new Error(payload.error ?? "Failed to create song");
       toast.success(payload.song ? `Added #${payload.song.number} ${payload.song.name}` : "Song added");
       setCreateDraft(EMPTY_DRAFT);
+      setCreatingOpen(false);
       await refreshSongs();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to create song");
@@ -225,131 +243,40 @@ export default function AdminSongsManager({ authorized, initialSongs }: AdminSon
 
   return (
     <section className="space-y-4">
-      <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white/90 dark:bg-zinc-950/70 p-4 sm:p-5">
-        <div>
-          <h1 className="text-lg sm:text-xl font-semibold text-zinc-900 dark:text-zinc-100">Songs Admin</h1>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            Full CRUD for songs with archive and permanent delete actions.
-          </p>
+      {!embedded ? (
+        <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white/90 dark:bg-zinc-950/70 p-4 sm:p-5">
+          <div>
+            <h1 className="text-lg sm:text-xl font-semibold text-zinc-900 dark:text-zinc-100">Songs Admin</h1>
+            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+              Full CRUD for songs with archive and permanent delete actions.
+            </p>
+          </div>
         </div>
-      </div>
-
-      <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white/90 dark:bg-zinc-950/70 p-4 sm:p-5">
-        <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Create Song</h2>
-        <form className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3" onSubmit={handleCreateSong}>
-          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-200 sm:col-span-2">
-            Song Name
-            <input
-              type="text"
-              value={createDraft.name}
-              onChange={(e) => setCreateDraft((prev) => ({ ...prev, name: e.target.value }))}
-              className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm"
-              required
-            />
-          </label>
-          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-200">
-            Genre
-            <select
-              value={createDraft.genre}
-              onChange={(e) =>
-                setCreateDraft((prev) => ({
-                  ...prev,
-                  genre: e.target.value as SongDraft["genre"],
-                }))
-              }
-              className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm"
-            >
-              <option value="worship">Worship</option>
-              <option value="praise">Praise</option>
-              <option value="other">Other</option>
-            </select>
-          </label>
-          <label className="inline-flex items-center gap-2 mt-6 text-sm font-medium text-zinc-700 dark:text-zinc-200">
-            <input
-              type="checkbox"
-              checked={createDraft.active}
-              onChange={(e) => setCreateDraft((prev) => ({ ...prev, active: e.target.checked }))}
-              className="h-4 w-4 rounded border-zinc-300 dark:border-zinc-600"
-            />
-            Active
-          </label>
-          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-200">
-            YouTube URL
-            <input
-              type="url"
-              value={createDraft.youtubeUrl}
-              onChange={(e) => setCreateDraft((prev) => ({ ...prev, youtubeUrl: e.target.value }))}
-              className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm"
-              placeholder="https://youtube.com/..."
-            />
-          </label>
-          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-200">
-            Spotify URL
-            <input
-              type="url"
-              value={createDraft.spotifyUrl}
-              onChange={(e) => setCreateDraft((prev) => ({ ...prev, spotifyUrl: e.target.value }))}
-              className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm"
-              placeholder="https://open.spotify.com/..."
-            />
-          </label>
-          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-200 sm:col-span-2">
-            Notes
-            <textarea
-              rows={3}
-              value={createDraft.notes}
-              onChange={(e) => setCreateDraft((prev) => ({ ...prev, notes: e.target.value }))}
-              className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm"
-              placeholder="Arrangement notes..."
-            />
-          </label>
-          <div className="sm:col-span-2 mt-2 rounded-lg border border-zinc-200 dark:border-zinc-800 p-3">
-            <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-100 mb-2">Lyrics Sections</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {LYRICS_FIELDS.map((field) => (
-                <label key={field.key} className="block text-xs font-medium text-zinc-700 dark:text-zinc-200">
-                  {field.label}
-                  <textarea
-                    rows={3}
-                    value={createDraft.lyricsSections[field.key]}
-                    onChange={(e) =>
-                      setCreateDraft((prev) => ({
-                        ...prev,
-                        lyricsSections: {
-                          ...prev.lyricsSections,
-                          [field.key]: e.target.value,
-                        },
-                      }))
-                    }
-                    className="mt-1 w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2 py-1.5 text-xs"
-                  />
-                </label>
-              ))}
-            </div>
-          </div>
-          <div className="sm:col-span-2">
-            <button
-              type="submit"
-              disabled={creating}
-              className="rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 text-sm font-medium disabled:opacity-70"
-            >
-              {creating ? "Saving..." : "Create Song"}
-            </button>
-          </div>
-        </form>
-      </div>
+      ) : null}
 
       <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white/90 dark:bg-zinc-950/70 p-4 sm:p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Manage Songs</h2>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">Total: {songs.length}</p>
+          <div>
+            <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Manage Songs</h2>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">Total: {songs.length}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setCreatingOpen(true)}
+            className="rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 text-sm font-medium"
+          >
+            Create Song
+          </button>
         </div>
         <label className="block mt-3 text-sm font-medium text-zinc-700 dark:text-zinc-200">
           Search
           <input
             type="text"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setPage(1);
+            }}
             className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm"
             placeholder="Search by number, name, or genre..."
           />
@@ -358,7 +285,7 @@ export default function AdminSongsManager({ authorized, initialSongs }: AdminSon
           {visibleSongs.length === 0 ? (
             <p className="text-sm text-zinc-500 dark:text-zinc-400">No songs found.</p>
           ) : (
-            visibleSongs.map((song) => (
+            pagedSongs.map((song) => (
               <div
                 key={song._id}
                 className="rounded-lg border border-zinc-200 dark:border-zinc-800 p-3 flex flex-wrap items-center justify-between gap-3"
@@ -400,6 +327,31 @@ export default function AdminSongsManager({ authorized, initialSongs }: AdminSon
             ))
           )}
         </div>
+        {visibleSongs.length > PAGE_SIZE ? (
+          <div className="mt-3 flex items-center justify-between gap-2 text-xs sm:text-sm">
+            <div className="text-zinc-500 dark:text-zinc-400">
+              Page {safePage} of {totalPages}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={safePage <= 1}
+                className="rounded-md border border-zinc-300 dark:border-zinc-700 px-2.5 py-1 text-zinc-700 dark:text-zinc-200 disabled:opacity-50"
+              >
+                Prev
+              </button>
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={safePage >= totalPages}
+                className="rounded-md border border-zinc-300 dark:border-zinc-700 px-2.5 py-1 text-zinc-700 dark:text-zinc-200 disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {editingSong ? (
@@ -524,6 +476,139 @@ export default function AdminSongsManager({ authorized, initialSongs }: AdminSon
                   className="rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 text-sm font-medium disabled:opacity-70"
                 >
                   {savingEdit ? "Saving..." : "Save Changes"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {creatingOpen ? (
+        <div
+          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-[1px] flex items-center justify-center p-3 sm:p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Create song"
+          onClick={() => {
+            if (creating) return;
+            setCreatingOpen(false);
+          }}
+        >
+          <div
+            className="w-full max-w-3xl rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-4 sm:p-5 max-h-[85vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-base sm:text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+                Create Song
+              </h3>
+              <button
+                type="button"
+                onClick={() => setCreatingOpen(false)}
+                disabled={creating}
+                className="rounded-md border border-zinc-300 dark:border-zinc-700 px-2.5 py-1 text-xs text-zinc-700 dark:text-zinc-200 disabled:opacity-50"
+              >
+                Close
+              </button>
+            </div>
+            <form className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3" onSubmit={handleCreateSong}>
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-200 sm:col-span-2">
+                Song Name
+                <input
+                  type="text"
+                  value={createDraft.name}
+                  onChange={(e) => setCreateDraft((prev) => ({ ...prev, name: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm"
+                  required
+                />
+              </label>
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-200">
+                Genre
+                <select
+                  value={createDraft.genre}
+                  onChange={(e) =>
+                    setCreateDraft((prev) => ({
+                      ...prev,
+                      genre: e.target.value as SongDraft["genre"],
+                    }))
+                  }
+                  className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm"
+                >
+                  <option value="worship">Worship</option>
+                  <option value="praise">Praise</option>
+                  <option value="other">Other</option>
+                </select>
+              </label>
+              <label className="inline-flex items-center gap-2 mt-6 text-sm font-medium text-zinc-700 dark:text-zinc-200">
+                <input
+                  type="checkbox"
+                  checked={createDraft.active}
+                  onChange={(e) => setCreateDraft((prev) => ({ ...prev, active: e.target.checked }))}
+                  className="h-4 w-4 rounded border-zinc-300 dark:border-zinc-600"
+                />
+                Active
+              </label>
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-200">
+                YouTube URL
+                <input
+                  type="url"
+                  value={createDraft.youtubeUrl}
+                  onChange={(e) => setCreateDraft((prev) => ({ ...prev, youtubeUrl: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm"
+                  placeholder="https://youtube.com/..."
+                />
+              </label>
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-200">
+                Spotify URL
+                <input
+                  type="url"
+                  value={createDraft.spotifyUrl}
+                  onChange={(e) => setCreateDraft((prev) => ({ ...prev, spotifyUrl: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm"
+                  placeholder="https://open.spotify.com/..."
+                />
+              </label>
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-200 sm:col-span-2">
+                Notes
+                <textarea
+                  rows={3}
+                  value={createDraft.notes}
+                  onChange={(e) => setCreateDraft((prev) => ({ ...prev, notes: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm"
+                  placeholder="Arrangement notes..."
+                />
+              </label>
+              <div className="sm:col-span-2 mt-2 rounded-lg border border-zinc-200 dark:border-zinc-800 p-3">
+                <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-100 mb-2">Lyrics Sections</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {LYRICS_FIELDS.map((field) => (
+                    <label key={field.key} className="block text-xs font-medium text-zinc-700 dark:text-zinc-200">
+                      {field.label}
+                      <textarea
+                        rows={3}
+                        value={createDraft.lyricsSections[field.key]}
+                        onChange={(e) =>
+                          setCreateDraft((prev) => ({
+                            ...prev,
+                            lyricsSections: {
+                              ...prev.lyricsSections,
+                              [field.key]: e.target.value,
+                            },
+                          }))
+                        }
+                        className="mt-1 w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2 py-1.5 text-xs"
+                      />
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div className="sm:col-span-2">
+                <button
+                  type="submit"
+                  disabled={creating}
+                  className="rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 text-sm font-medium disabled:opacity-70"
+                >
+                  {creating ? "Saving..." : "Create Song"}
                 </button>
               </div>
             </form>

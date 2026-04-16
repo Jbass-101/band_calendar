@@ -5,6 +5,7 @@ import type { Song } from "@/src/lib/sanity/client";
 
 type SongRepositoryProps = {
   songs: Song[];
+  embedded?: boolean;
 };
 
 const PAGE_SIZE = 20;
@@ -33,7 +34,7 @@ function getSongLyricsSections(song: Song) {
     .filter((section) => typeof section.content === "string" && section.content.trim().length > 0);
 }
 
-export default function SongRepository({ songs }: SongRepositoryProps) {
+export default function SongRepository({ songs, embedded = false }: SongRepositoryProps) {
   const [query, setQuery] = useState("");
   const [lyricsSong, setLyricsSong] = useState<Song | null>(null);
   const [page, setPage] = useState(1);
@@ -77,10 +78,10 @@ export default function SongRepository({ songs }: SongRepositoryProps) {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="text-lg sm:text-xl font-semibold text-zinc-900 dark:text-zinc-100">
-              Song Repository
+              {embedded ? "Repository" : "Song Repository"}
             </h1>
             <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-              Search and manage songs for future setlists.
+              Search and browse songs for future setlists.
             </p>
           </div>
           <div className="text-xs text-zinc-500 dark:text-zinc-400">

@@ -13,19 +13,14 @@ const ADMIN_CARDS = [
     href: "/contributions",
   },
   {
-    title: "Songs Admin",
-    description: "Create, edit, archive, and delete songs in the library.",
-    href: "/admin/songs",
+    title: "Songs",
+    description: "Browse, create, edit, archive, and manage songs in one place.",
+    href: "/songs",
   },
   {
     title: "Setlists",
     description: "View and manage the worship setlist collections.",
     href: "/setlists",
-  },
-  {
-    title: "Songs Repository",
-    description: "Browse all songs and lyrics from the public repository view.",
-    href: "/songs",
   },
   {
     title: "Sanity Studio",
