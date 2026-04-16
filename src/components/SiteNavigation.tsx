@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useState } from "react";
 import { BRANDING } from "@/src/lib/branding";
 
 type SiteNavigationProps = {
@@ -15,14 +16,6 @@ const PUBLIC_LINKS = [
   { href: "/admin", label: "Admin" },
 ] as const;
 
-const AUTHORIZED_LINKS = [
-  { href: "/schedule", label: "Schedule" },
-  { href: "/songs", label: "Songs" },
-  { href: "/setlists", label: "Setlists" },
-  { href: "/contributions", label: "Contributions" },
-  { href: "/admin", label: "Admin" },
-] as const;
-
 function isActive(pathname: string, href: string) {
   if (href === "/admin") return pathname === "/admin" || pathname.startsWith("/admin/");
   return pathname === href;
@@ -30,10 +23,25 @@ function isActive(pathname: string, href: string) {
 
 export default function SiteNavigation({ authorized }: SiteNavigationProps) {
   const pathname = usePathname();
-  const links = authorized ? AUTHORIZED_LINKS : PUBLIC_LINKS;
+  const router = useRouter();
+  const [signingOut, setSigningOut] = useState(false);
 
   if (pathname === "/login") {
     return null;
+  }
+
+  async function handleSignOut() {
+    setSigningOut(true);
+    try {
+      await fetch("/api/contributions/auth", {
+        method: "DELETE",
+        credentials: "include",
+      });
+      router.push("/login");
+      router.refresh();
+    } finally {
+      setSigningOut(false);
+    }
   }
 
   return (
@@ -58,28 +66,39 @@ export default function SiteNavigation({ authorized }: SiteNavigationProps) {
         </Link>
 
         <div className="flex flex-wrap items-center justify-start gap-1 text-xs sm:justify-end sm:text-sm">
-          {links.map((link) => {
-            const active = isActive(pathname, link.href);
-            const isAdminCta = !authorized && link.href === "/admin";
-            return (
-              <Link
-                key={link.href}
-                href={isAdminCta ? "/login" : link.href}
-                className={[
-                  "rounded-md px-2 py-1.5 transition-colors border whitespace-nowrap",
-                  isAdminCta
-                    ? active
-                      ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900"
-                      : "border-zinc-900 bg-zinc-900 text-white hover:bg-zinc-800 dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
-                    : active
-                      ? "border-emerald-400/70 bg-emerald-50/70 dark:border-emerald-500/60 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-200"
-                      : "border-zinc-200/80 dark:border-zinc-800/80 bg-white/60 dark:bg-zinc-950/30 text-zinc-700 dark:text-zinc-200 hover:bg-white/90 dark:hover:bg-zinc-900/40",
-                ].join(" ")}
-              >
-                {link.label}
-              </Link>
-            );
-          })}
+          {authorized ? (
+            <button
+              type="button"
+              onClick={() => void handleSignOut()}
+              disabled={signingOut}
+              className="rounded-md px-2 py-1.5 transition-colors border whitespace-nowrap border-zinc-900 bg-zinc-900 text-white hover:bg-zinc-800 dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+            >
+              {signingOut ? "Logging out..." : "Logout"}
+            </button>
+          ) : (
+            PUBLIC_LINKS.map((link) => {
+              const active = isActive(pathname, link.href);
+              const isAdminCta = link.href === "/admin";
+              return (
+                <Link
+                  key={link.href}
+                  href={isAdminCta ? "/login" : link.href}
+                  className={[
+                    "rounded-md px-2 py-1.5 transition-colors border whitespace-nowrap",
+                    isAdminCta
+                      ? active
+                        ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900"
+                        : "border-zinc-900 bg-zinc-900 text-white hover:bg-zinc-800 dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+                      : active
+                        ? "border-emerald-400/70 bg-emerald-50/70 dark:border-emerald-500/60 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-200"
+                        : "border-zinc-200/80 dark:border-zinc-800/80 bg-white/60 dark:bg-zinc-950/30 text-zinc-700 dark:text-zinc-200 hover:bg-white/90 dark:hover:bg-zinc-900/40",
+                  ].join(" ")}
+                >
+                  {link.label}
+                </Link>
+              );
+            })
+          )}
         </div>
       </div>
     </nav>

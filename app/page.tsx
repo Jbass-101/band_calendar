@@ -1,8 +1,23 @@
 import Image from "next/image";
+import { cookies } from "next/headers";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { BRANDING } from "@/src/lib/branding";
+import {
+  getContribAuthCookieName,
+  isContribSessionValidFromCookie,
+} from "@/src/lib/sanity/contributionsAuth";
 
-export default function Home() {
+export default async function Home() {
+  const cookieStore = await cookies();
+  const cookieName = getContribAuthCookieName();
+  const cookieValue = cookieStore.get(cookieName)?.value;
+  const authorized = await isContribSessionValidFromCookie(cookieValue);
+
+  if (authorized) {
+    redirect("/admin");
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-zinc-100/80 dark:bg-black">
       <main className="w-full max-w-6xl mx-auto px-3 sm:px-4 py-6 sm:py-8 flex-1">
