@@ -4,7 +4,7 @@ import { BRANDING } from "@/src/lib/branding";
 
 export default function Home() {
   return (
-    <div className="min-h-full flex flex-col bg-zinc-100/80 dark:bg-black">
+    <div className="min-h-screen flex flex-col bg-zinc-100/80 dark:bg-black">
       <main className="w-full max-w-6xl mx-auto px-3 sm:px-4 py-6 sm:py-8 flex-1">
         <header className="mb-5 sm:mb-7 flex flex-col items-start gap-4 rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white/80 dark:bg-zinc-950/40 px-3 py-3 sm:flex-row sm:items-center sm:gap-5 sm:px-4 sm:py-4 shadow-sm backdrop-blur-sm">
           <div className="shrink-0 self-center sm:self-auto">

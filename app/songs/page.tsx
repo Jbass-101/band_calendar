@@ -38,7 +38,7 @@ export default async function SongsPage() {
   const songs = await fetchSongs();
 
   return (
-    <div className="min-h-full flex flex-col bg-zinc-100/80 dark:bg-black">
+    <div className="min-h-screen flex flex-col bg-zinc-100/80 dark:bg-black">
       <main className="w-full max-w-6xl mx-auto px-3 sm:px-4 py-6 sm:py-8 flex-1">
         <SongRepository songs={songs} />
       </main>

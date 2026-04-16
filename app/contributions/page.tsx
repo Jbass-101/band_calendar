@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import AdminNavigation from "@/src/components/AdminNavigation";
 import ContributionsManager from "@/src/components/ContributionsManager";
 import { BRANDING } from "@/src/lib/branding";
@@ -48,8 +49,12 @@ export default async function ContributionsPage() {
   const cookieValue = cookieStore.get(cookieName)?.value;
   const authorized = await isContribSessionValidFromCookie(cookieValue);
 
+  if (!authorized) {
+    redirect("/login");
+  }
+
   return (
-    <div className="min-h-full flex flex-col bg-zinc-100/80 dark:bg-black">
+    <div className="min-h-screen flex flex-col bg-zinc-100/80 dark:bg-black">
       <main className="w-full max-w-6xl mx-auto px-3 sm:px-4 py-6 sm:py-8 flex-1">
         <AdminNavigation authorized={authorized} />
         <div className="mt-4">

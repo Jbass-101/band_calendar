@@ -326,9 +326,7 @@ function ContributionsStatementExport({ report }: { report: ReportPayload }) {
 }
 
 export default function ContributionsManager({ authorized }: { authorized: boolean }) {
-  const [isAuthed, setIsAuthed] = useState(authorized);
-  const [password, setPassword] = useState("");
-  const [unlockError, setUnlockError] = useState<string | null>(null);
+  const isAuthed = authorized;
 
   const [activeTab, setActiveTab] = useState<ActiveTab>("overview");
   const [month, setMonth] = useState(currentMonth());
@@ -665,29 +663,6 @@ export default function ContributionsManager({ authorized }: { authorized: boole
     }
   }
 
-  async function handleUnlock(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setUnlockError(null);
-    try {
-      const res = await fetch("/api/contributions/auth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ password }),
-      });
-      if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(body.error ?? "Unauthorized");
-      }
-      setIsAuthed(true);
-      setPassword("");
-      await loadData();
-    } catch (e) {
-      const message = e instanceof Error ? e.message : "Unlock failed";
-      setUnlockError(message);
-    }
-  }
-
   async function handleExpenseSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setExpenseSaving(true);
@@ -935,42 +910,6 @@ export default function ContributionsManager({ authorized }: { authorized: boole
     } finally {
       setContributionDeletingId(null);
     }
-  }
-
-  if (!isAuthed) {
-    return (
-      <section className="max-w-md mx-auto rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-4 sm:p-5">
-        <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Choir Contributions</h1>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-          Admin access required.
-        </p>
-        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-          This password is managed in the Sanity document type{" "}
-          <span className="font-medium">Contribution Access</span>.
-        </p>
-        <form className="mt-4 space-y-3" onSubmit={handleUnlock}>
-          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-200">
-            Password
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm"
-              required
-            />
-          </label>
-          {unlockError ? (
-            <p className="text-sm text-red-600 dark:text-red-400">{unlockError}</p>
-          ) : null}
-          <button
-            type="submit"
-            className="w-full rounded-lg bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 px-3 py-2 text-sm font-medium"
-          >
-            Unlock
-          </button>
-        </form>
-      </section>
-    );
   }
 
   return (

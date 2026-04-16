@@ -32,6 +32,10 @@ export default function SiteNavigation({ authorized }: SiteNavigationProps) {
   const pathname = usePathname();
   const links = authorized ? AUTHORIZED_LINKS : PUBLIC_LINKS;
 
+  if (pathname === "/login") {
+    return null;
+  }
+
   return (
     <nav className="sticky top-0 z-50 border-b border-zinc-200/80 dark:border-zinc-800/80 bg-zinc-50/70 dark:bg-black/50 backdrop-blur">
       <div className="max-w-6xl mx-auto px-3 sm:px-4 py-3 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -60,7 +64,7 @@ export default function SiteNavigation({ authorized }: SiteNavigationProps) {
             return (
               <Link
                 key={link.href}
-                href={link.href}
+                href={isAdminCta ? "/login" : link.href}
                 className={[
                   "rounded-md px-2 py-1.5 transition-colors border whitespace-nowrap",
                   isAdminCta
