@@ -170,6 +170,8 @@ export default function BandCalendarMonth() {
     "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-200";
   const tabButtonInactive =
     "border-zinc-200 bg-white/70 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900/30 dark:text-zinc-200 dark:hover:bg-zinc-800/60";
+  const setlistButtonClass =
+    "inline-flex max-w-full items-center justify-center rounded-md border border-emerald-300/90 bg-emerald-50/95 px-2 py-1 text-[10px] font-semibold leading-tight text-emerald-800 shadow-sm transition-colors hover:bg-emerald-100/90 dark:border-emerald-800/80 dark:bg-emerald-950/40 dark:text-emerald-200 dark:hover:bg-emerald-900/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-offset-zinc-950";
 
   useEffect(() => {
     const year = cursorMonth.getFullYear();
@@ -537,6 +539,8 @@ export default function BandCalendarMonth() {
                 })()
               : [];
 
+            const overlapSetlistServices = dayServices.filter((s) => s.setlist);
+
             return (
               <div
                 key={key}
@@ -551,6 +555,23 @@ export default function BandCalendarMonth() {
                     <div className="text-[10px] font-bold whitespace-nowrap border border-orange-500 bg-orange-500 text-white rounded-tl-sm px-2 py-0.5">
                       R
                     </div>
+                  </div>
+                ) : null}
+
+                {isOverlap && overlapSetlistServices.length > 0 ? (
+                  <div className="absolute bottom-0 left-0 z-10 flex max-w-[calc(100%-2.75rem)] flex-col items-stretch gap-1 p-1">
+                    {overlapSetlistServices.map((svc) => (
+                      <button
+                        key={`${key}-${svc._id}-setlist-footer`}
+                        type="button"
+                        onClick={() => void openSetlistPreview(svc.setlist!._id)}
+                        className={setlistButtonClass}
+                      >
+                        <span className="truncate text-left">
+                          Setlist ({svc.setlist!.status})
+                        </span>
+                      </button>
+                    ))}
                   </div>
                 ) : null}
 
@@ -573,12 +594,12 @@ export default function BandCalendarMonth() {
                         <div className="text-xs font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
                           {formatServiceTitleForDate(date, svc.title)}
                         </div>
-                        {svc.setlist ? (
+                        {svc.setlist && !isOverlap ? (
                           <div className="mt-1">
                             <button
                               type="button"
                               onClick={() => void openSetlistPreview(svc.setlist!._id)}
-                              className="text-[10px] font-medium text-emerald-700 dark:text-emerald-400 hover:underline"
+                              className={setlistButtonClass}
                             >
                               Setlist ({svc.setlist.status})
                             </button>
@@ -658,7 +679,18 @@ export default function BandCalendarMonth() {
                         ) : null}
                       </div>
                     ))}
-                    {isOverlap ? <div className="h-6 shrink-0" aria-hidden /> : null}
+                    {isOverlap ? (
+                      <div
+                        className="shrink-0"
+                        style={{
+                          minHeight:
+                            overlapSetlistServices.length > 0
+                              ? `${24 + overlapSetlistServices.length * 26}px`
+                              : "24px",
+                        }}
+                        aria-hidden
+                      />
+                    ) : null}
                   </div>
                 ) : null}
 

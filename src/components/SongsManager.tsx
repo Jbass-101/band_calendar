@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Song } from "@/src/lib/sanity/client";
 import SongRepository from "@/src/components/SongRepository";
 import AdminSongsManager from "@/src/components/AdminSongsManager";
@@ -12,8 +12,13 @@ type SongsManagerProps = {
 
 type SongsTab = "repository" | "manage";
 
-export default function SongsManager({ songs, authorized }: SongsManagerProps) {
+export default function SongsManager({ songs: songsFromServer, authorized }: SongsManagerProps) {
+  const [songs, setSongs] = useState(songsFromServer);
   const [activeTab, setActiveTab] = useState<SongsTab>("repository");
+
+  useEffect(() => {
+    setSongs(songsFromServer);
+  }, [songsFromServer]);
 
   return (
     <section className="space-y-4">
@@ -63,7 +68,7 @@ export default function SongsManager({ songs, authorized }: SongsManagerProps) {
       {activeTab === "repository" ? (
         <SongRepository songs={songs} embedded />
       ) : (
-        <AdminSongsManager authorized={authorized} initialSongs={songs} embedded />
+        <AdminSongsManager authorized={authorized} songs={songs} setSongs={setSongs} embedded />
       )}
     </section>
   );

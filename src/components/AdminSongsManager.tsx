@@ -6,7 +6,8 @@ import type { Song } from "@/src/lib/sanity/client";
 
 type AdminSongsManagerProps = {
   authorized: boolean;
-  initialSongs: Song[];
+  songs: Song[];
+  setSongs: React.Dispatch<React.SetStateAction<Song[]>>;
   embedded?: boolean;
 };
 
@@ -127,12 +128,11 @@ function toDraft(song: Song): SongDraft {
 
 export default function AdminSongsManager({
   authorized,
-  initialSongs,
+  songs,
+  setSongs,
   embedded = false,
 }: AdminSongsManagerProps) {
   void authorized;
-
-  const [songs, setSongs] = useState<Song[]>(initialSongs);
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [creatingOpen, setCreatingOpen] = useState(false);
