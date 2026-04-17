@@ -82,6 +82,7 @@ export type Setlist = {
 
 export type SetlistDetailSong = SetlistSongItem & {
   lyricsSections: Song["lyricsSections"];
+  youtubeUrl: string | null;
 };
 
 export type SetlistDetail = Omit<Setlist, "songs"> & {
@@ -602,6 +603,7 @@ export async function fetchSetlistById(id: string): Promise<SetlistDetail | null
       "songNumber": song->number,
       "songName": song->name,
       "songGenre": song->genre,
+      "youtubeUrl": song->youtubeUrl,
       "defaultKey": song->defaultKey,
       "tempoBpm": song->tempoBpm,
       "lyricsSections": song->lyricsSections{
@@ -640,6 +642,7 @@ export async function fetchSetlistById(id: string): Promise<SetlistDetail | null
           songNumber?: number | null;
           songName?: string | null;
           songGenre?: string | null;
+          youtubeUrl?: string | null;
           defaultKey?: string | null;
           tempoBpm?: number | null;
           lyricsSections?: {
@@ -728,6 +731,7 @@ export async function fetchSetlistById(id: string): Promise<SetlistDetail | null
             tempoOverride,
             defaultKey: normalizeString(item.defaultKey),
             tempoBpm,
+            youtubeUrl: normalizeString(item.youtubeUrl),
             lyricsSections: normalizeLyrics(item.lyricsSections ?? undefined),
           } satisfies SetlistDetailSong;
         })

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import SetlistBandExportCard from "@/src/components/setlistExport/SetlistBandExportCard";
 import { downloadBandScheduleDomPdf } from "@/src/lib/bandCalendar/downloadBandScheduleDomPdf";
 import { downloadBandSetlistPng } from "@/src/lib/setlistExport/downloadBandSetlistPng";
+import { formatSetlistWhatsAppText } from "@/src/lib/setlistExport/formatSetlistWhatsAppText";
 import {
   Drum,
   Guitar,
@@ -348,6 +349,20 @@ export default function BandCalendarMonth() {
       setSetlistPreviewExporting(false);
     }
   };
+
+  async function handleCopyWhatsApp() {
+    if (!setlistPreview) return;
+    if (!navigator.clipboard?.writeText) {
+      toast.error("Clipboard is not available in this browser.");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(formatSetlistWhatsAppText(setlistPreview));
+      toast.success("Copied to clipboard");
+    } catch {
+      toast.error("Could not copy to clipboard.");
+    }
+  }
 
   return (
     <section className="w-full rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white/80 dark:bg-zinc-950/40 shadow-sm backdrop-blur-sm p-3 sm:p-4">
@@ -917,7 +932,7 @@ export default function BandCalendarMonth() {
                   <p className="text-xs text-zinc-500 dark:text-zinc-400">Band Calendar</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => void handleDownloadBandSetlistPng()}
@@ -925,6 +940,14 @@ export default function BandCalendarMonth() {
                   className="rounded-md border border-emerald-600 bg-emerald-600 text-white px-2.5 py-1 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {setlistPreviewExporting ? "Downloading..." : "Download PNG"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleCopyWhatsApp()}
+                  disabled={!setlistPreview || setlistPreviewLoading}
+                  className="rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2.5 py-1 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Copy for WhatsApp
                 </button>
                 <button
                   type="button"
