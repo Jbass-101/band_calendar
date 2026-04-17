@@ -1,24 +1,54 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
-import type { Setlist, Song } from "@/src/lib/sanity/client";
+import type { Setlist, SetlistSongItem, Song } from "@/src/lib/sanity/client";
 
 type SetlistRepositoryProps = {
   setlists: Setlist[];
 };
-
-function serviceTypeLabel(serviceType: Setlist["serviceType"]) {
-  if (serviceType === "sunday_morning") return "Sunday Morning";
-  if (serviceType === "sunday_evening") return "Sunday Evening";
-  if (serviceType === "midweek") return "Midweek";
-  return "Special Service";
-}
 
 function songGenreLabel(genre: Song["genre"] | null) {
   if (genre === "worship") return "Worship";
   if (genre === "praise") return "Praise";
   if (genre === "other") return "Other";
   return "—";
+}
+
+function statusLabel(status: Setlist["status"]) {
+  if (status === "draft") return "Draft";
+  if (status === "ready") return "Ready";
+  if (status === "final") return "Final";
+  return "Archived";
+}
+
+function statusBadgeClass(status: Setlist["status"]) {
+  if (status === "final") {
+    return "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300";
+  }
+  if (status === "ready") {
+    return "bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300";
+  }
+  if (status === "archived") {
+    return "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300";
+  }
+  return "bg-amber-100 text-amber-900 dark:bg-amber-900/25 dark:text-amber-200";
+}
+
+function formatKey(item: SetlistSongItem): string {
+  const v = item.keyOverride ?? item.defaultKey;
+  return v && v.trim() ? v.trim() : "—";
+}
+
+function formatTempo(item: SetlistSongItem): string {
+  if (item.tempoOverride != null) return String(item.tempoOverride);
+  if (item.tempoBpm != null) return String(item.tempoBpm);
+  return "—";
+}
+
+function formatCapo(item: SetlistSongItem): string {
+  const v = item.capo;
+  return v && v.trim() ? v.trim() : "—";
 }
 
 export default function SetlistRepository({ setlists }: SetlistRepositoryProps) {
@@ -30,15 +60,30 @@ export default function SetlistRepository({ setlists }: SetlistRepositoryProps) 
 
     return setlists.filter((setlist) => {
       const songsText = setlist.songs
-        .map((item) => [item.songNumber ?? "", item.songName ?? "", item.songGenre ?? "", item.note ?? ""].join(" "))
+        .map((item) =>
+          [
+            item.songNumber ?? "",
+            item.songName ?? "",
+            item.songGenre ?? "",
+            item.note ?? "",
+            item.keyOverride ?? "",
+            item.defaultKey ?? "",
+            item.capo ?? "",
+            item.tempoOverride ?? "",
+            item.tempoBpm ?? "",
+          ].join(" ")
+        )
         .join(" ");
+
+      const leads = setlist.leadVocalNames.join(" ");
 
       const haystack = [
         setlist.title ?? "",
-        setlist.date,
-        setlist.serviceType,
+        setlist.serviceDate,
+        setlist.serviceTitle,
+        setlist.status,
         setlist.notes ?? "",
-        setlist.active ? "active" : "archived",
+        leads,
         songsText,
       ]
         .join(" ")
@@ -57,7 +102,8 @@ export default function SetlistRepository({ setlists }: SetlistRepositoryProps) 
               Setlists
             </h1>
             <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-              Track ordered song flows for services.
+              Ordered songs per calendar service. Manage setlists in Sanity Studio (link each to a
+              service).
             </p>
           </div>
           <div className="text-xs text-zinc-500 dark:text-zinc-400">
@@ -70,7 +116,7 @@ export default function SetlistRepository({ setlists }: SetlistRepositoryProps) 
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by title, date, service type, songs..."
+            placeholder="Search by title, date, service, status, lead vocal, songs..."
             className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm"
           />
         </label>
@@ -83,27 +129,48 @@ export default function SetlistRepository({ setlists }: SetlistRepositoryProps) 
           <div className="space-y-3">
             {filteredSetlists.map((setlist) => (
               <article
+                id={setlist._id}
                 key={setlist._id}
-                className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/50 p-3 sm:p-4"
+                className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/50 p-3 sm:p-4 scroll-mt-24"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
+                  <div className="min-w-0">
                     <h2 className="text-sm sm:text-base font-semibold text-zinc-900 dark:text-zinc-100">
-                      {setlist.title ?? `Setlist ${setlist.date}`}
+                      {setlist.title ?? `Setlist — ${setlist.serviceDate}`}
                     </h2>
                     <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
-                      {setlist.date} • {serviceTypeLabel(setlist.serviceType)}
+                      {setlist.serviceDate} • {setlist.serviceTitle}
                     </p>
+                    {setlist.leadVocalNames.length > 0 ? (
+                      <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                        Lead vocal: {setlist.leadVocalNames.join(", ")}
+                      </p>
+                    ) : null}
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <Link
+                        href={`/setlists/${setlist._id}/export/band`}
+                        className="text-xs font-medium text-emerald-700 dark:text-emerald-400 hover:underline"
+                      >
+                        Export band sheet
+                      </Link>
+                      <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
+                        |
+                      </span>
+                      <Link
+                        href={`/setlists/${setlist._id}/export/media`}
+                        className="text-xs font-medium text-emerald-700 dark:text-emerald-400 hover:underline"
+                      >
+                        Export media / lyrics
+                      </Link>
+                    </div>
                   </div>
                   <span
                     className={[
                       "inline-flex rounded-full px-2 py-0.5 text-xs font-medium",
-                      setlist.active
-                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
-                        : "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
+                      statusBadgeClass(setlist.status),
                     ].join(" ")}
                   >
-                    {setlist.active ? "Active" : "Archived"}
+                    {statusLabel(setlist.status)}
                   </span>
                 </div>
 
@@ -115,7 +182,10 @@ export default function SetlistRepository({ setlists }: SetlistRepositoryProps) 
                           <th className="py-2 px-3">#</th>
                           <th className="py-2 pr-3">Song</th>
                           <th className="py-2 pr-3">Genre</th>
-                          <th className="py-2 pr-3">Item Note</th>
+                          <th className="py-2 pr-3">Key</th>
+                          <th className="py-2 pr-3">Tempo</th>
+                          <th className="py-2 pr-3">Capo</th>
+                          <th className="py-2 pr-3">Note</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -134,6 +204,15 @@ export default function SetlistRepository({ setlists }: SetlistRepositoryProps) 
                               {songGenreLabel(item.songGenre)}
                             </td>
                             <td className="py-2 pr-3 text-zinc-700 dark:text-zinc-300">
+                              {formatKey(item)}
+                            </td>
+                            <td className="py-2 pr-3 text-zinc-700 dark:text-zinc-300">
+                              {formatTempo(item)}
+                            </td>
+                            <td className="py-2 pr-3 text-zinc-700 dark:text-zinc-300">
+                              {formatCapo(item)}
+                            </td>
+                            <td className="py-2 pr-3 text-zinc-700 dark:text-zinc-300">
                               {item.note ?? "—"}
                             </td>
                           </tr>
@@ -142,9 +221,7 @@ export default function SetlistRepository({ setlists }: SetlistRepositoryProps) 
                     </table>
                   </div>
                 ) : (
-                  <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
-                    No songs added.
-                  </p>
+                  <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">No songs added.</p>
                 )}
 
                 {setlist.notes ? (

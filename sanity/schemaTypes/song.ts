@@ -171,6 +171,19 @@ export const song = defineType({
           }),
     }),
     defineField({
+      name: "defaultKey",
+      title: "Default key",
+      type: "string",
+      description: "Typical key for this song (e.g. G, Bb). Setlist rows can override per service.",
+    }),
+    defineField({
+      name: "tempoBpm",
+      title: "Tempo (BPM)",
+      type: "number",
+      description: "Default tempo in beats per minute. Setlist rows can override per service.",
+      validation: (rule) => rule.min(1).max(400).integer(),
+    }),
+    defineField({
       name: "lyricsSections",
       title: "Lyrics Sections",
       type: "object",

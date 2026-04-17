@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { downloadDomAsPdf } from "@/src/lib/exportDomToPdf";
 import {
   Drum,
@@ -216,8 +217,17 @@ export default function BandCalendarMonth() {
     };
   }, [cursorMonth]);
 
-  const serviceByDate = useMemo(() => {
-    return new Map<string, Service>(services.map((s) => [s.date, s]));
+  const servicesByDate = useMemo(() => {
+    const m = new Map<string, Service[]>();
+    for (const s of services) {
+      const list = m.get(s.date) ?? [];
+      list.push(s);
+      m.set(s.date, list);
+    }
+    for (const [, list] of m) {
+      list.sort((a, b) => a.title.localeCompare(b.title));
+    }
+    return m;
   }, [services]);
 
   const monthYearLabel = formatMonthLabel(cursorMonth);
@@ -249,13 +259,16 @@ export default function BandCalendarMonth() {
     const keys: string[] = [];
     for (const cell of grid) {
       if (!cell.inMonth) continue;
-      if (serviceByDate.has(cell.key) || rehearsalDates.has(cell.key)) {
+      if (
+        (servicesByDate.has(cell.key) && (servicesByDate.get(cell.key)?.length ?? 0) > 0) ||
+        rehearsalDates.has(cell.key)
+      ) {
         keys.push(cell.key);
       }
     }
     // YYYY-MM-DD string sort is chronological.
     return keys.sort();
-  }, [grid, serviceByDate, rehearsalDates]);
+  }, [grid, servicesByDate, rehearsalDates]);
 
   const handleDownloadPdf = async () => {
     try {
@@ -436,12 +449,12 @@ export default function BandCalendarMonth() {
       <div className="overflow-y-auto max-h-[85vh] pr-1 sm:max-h-none sm:overflow-visible">
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 pb-1">
           {eventDateKeys.map((key) => {
-            const svc = serviceByDate.get(key);
+            const dayServices = servicesByDate.get(key) ?? [];
             const date = parseYMDLocal(key);
             if (!date) return null;
 
             const isRehearsal = rehearsalDates.has(key);
-            const isOverlap = Boolean(svc) && isRehearsal;
+            const isOverlap = dayServices.length > 0 && isRehearsal;
             const isPast = key < todayKey;
             const isWednesdayRehearsal = isRehearsal && date.getDay() === 3;
             const rehearsalServiceLines = isWednesdayRehearsal
@@ -465,7 +478,7 @@ export default function BandCalendarMonth() {
                 className={[
                   "min-h-28 rounded-xl border p-2.5 relative overflow-hidden shadow-sm transition-all duration-200",
                   "hover:-translate-y-0.5 hover:shadow-md",
-                  getServiceCardClass(svc, isPast),
+                  getServiceCardClass(dayServices[0], isPast),
                 ].join(" ")}
               >
                 {isOverlap ? (
@@ -483,88 +496,107 @@ export default function BandCalendarMonth() {
                   </div>
                 </div>
 
-                {svc ? (
-                  <div className="mt-2">
-                    <div className="text-xs font-semibold tracking-tight truncate text-zinc-900 dark:text-zinc-100">
-                      {formatServiceTitleForDate(date, svc.title)}
-                    </div>
-                    {svc.notes.length > 0 ? (
-                      <ul className="mt-1 list-disc pl-4 space-y-0.5 text-[10px] leading-snug text-zinc-700 dark:text-zinc-200">
-                        {svc.notes.map((note, idx) => (
-                          <li key={`${key}-note-${idx}`} className="break-words">
-                            {note}
-                          </li>
-                        ))}
-                      </ul>
-                    ) : null}
-                    {svc.showBandDetails ? (
-                      <>
-                        <div className="mt-1.5 space-y-1">
-                          {ROLE_ORDER.map((role) => {
-                            const assignment = svc.assignments.find((a) => a.role === role);
-                            const names = Array.isArray(assignment?.musicianNames)
-                              ? assignment.musicianNames.filter((n) => typeof n === "string" && n.trim().length > 0)
-                              : [];
-                            const displayNames = names.join(" | ");
-                            const hasName = displayNames.length > 0;
-                            const lineClass = ROLE_MOBILE_LINE_CLASS[role];
-                            const RoleIcon = ROLE_MOBILE_ICON[role];
+                {dayServices.length > 0 ? (
+                  <div className="mt-2 space-y-3">
+                    {dayServices.map((svc, svcIdx) => (
+                      <div
+                        key={svc._id}
+                        className={
+                          svcIdx > 0 ? "border-t border-zinc-200/80 dark:border-zinc-800/80 pt-2" : ""
+                        }
+                      >
+                        <div className="text-xs font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+                          {formatServiceTitleForDate(date, svc.title)}
+                        </div>
+                        {svc.setlist ? (
+                          <div className="mt-1">
+                            <Link
+                              href={`/setlists#${svc.setlist._id}`}
+                              className="text-[10px] font-medium text-emerald-700 dark:text-emerald-400 hover:underline"
+                            >
+                              Setlist ({svc.setlist.status})
+                            </Link>
+                          </div>
+                        ) : null}
+                        {svc.notes.length > 0 ? (
+                          <ul className="mt-1 list-disc pl-4 space-y-0.5 text-[10px] leading-snug text-zinc-700 dark:text-zinc-200">
+                            {svc.notes.map((note, idx) => (
+                              <li key={`${key}-${svc._id}-note-${idx}`} className="break-words">
+                                {note}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : null}
+                        {svc.showBandDetails ? (
+                          <>
+                            <div className="mt-1.5 space-y-1">
+                              {ROLE_ORDER.map((role) => {
+                                const assignment = svc.assignments.find((a) => a.role === role);
+                                const names = Array.isArray(assignment?.musicianNames)
+                                  ? assignment.musicianNames.filter((n) => typeof n === "string" && n.trim().length > 0)
+                                  : [];
+                                const displayNames = names.join(" | ");
+                                const hasName = displayNames.length > 0;
+                                const lineClass = ROLE_MOBILE_LINE_CLASS[role];
+                                const RoleIcon = ROLE_MOBILE_ICON[role];
 
-                            return (
-                              <div key={role} className="min-w-0">
+                                return (
+                                  <div key={`${svc._id}-${role}`} className="min-w-0">
+                                    <div className="inline-flex min-w-0 items-center gap-1.5">
+                                      <RoleIcon className={["h-3.5 w-3.5 shrink-0", lineClass].join(" ")} aria-hidden />
+                                      <span className={["text-[11px] font-medium shrink-0", lineClass].join(" ")}>:</span>
+                                      <span
+                                        className={[
+                                          "text-[11px] truncate block min-w-0",
+                                          lineClass,
+                                          !hasName ? "font-semibold" : "",
+                                        ].join(" ")}
+                                      >
+                                        {hasName ? displayNames : "—"}
+                                      </span>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+
+                            <div className="mt-2 border-t border-zinc-200/80 dark:border-zinc-800/80 pt-2">
+                              {svc.uniformWomen && svc.uniformMen ? (
+                                <div className="space-y-1">
+                                  <div className="inline-flex min-w-0 items-center gap-1.5">
+                                    <Venus className="h-3.5 w-3.5 shrink-0 text-zinc-600 dark:text-zinc-300" aria-hidden />
+                                    <span className="text-[11px] font-medium shrink-0 text-zinc-600 dark:text-zinc-300">:</span>
+                                    <span className="text-[11px] truncate block min-w-0 text-zinc-700 dark:text-zinc-200">
+                                      {svc.uniformWomen}
+                                    </span>
+                                  </div>
+                                  <div className="inline-flex min-w-0 items-center gap-1.5">
+                                    <Mars className="h-3.5 w-3.5 shrink-0 text-zinc-600 dark:text-zinc-300" aria-hidden />
+                                    <span className="text-[11px] font-medium shrink-0 text-zinc-600 dark:text-zinc-300">:</span>
+                                    <span className="text-[11px] truncate block min-w-0 text-zinc-700 dark:text-zinc-200">
+                                      {svc.uniformMen}
+                                    </span>
+                                  </div>
+                                </div>
+                              ) : (
                                 <div className="inline-flex min-w-0 items-center gap-1.5">
-                                  <RoleIcon className={["h-3.5 w-3.5 shrink-0", lineClass].join(" ")} aria-hidden />
-                                  <span className={["text-[11px] font-medium shrink-0", lineClass].join(" ")}>:</span>
-                                  <span
-                                    className={[
-                                      "text-[11px] truncate block min-w-0",
-                                      lineClass,
-                                      !hasName ? "font-semibold" : "",
-                                    ].join(" ")}
-                                  >
-                                      {hasName ? displayNames : "—"}
+                                  <Shirt className="h-3.5 w-3.5 shrink-0 text-zinc-600 dark:text-zinc-300" aria-hidden />
+                                  <span className="text-[11px] font-medium shrink-0 text-zinc-600 dark:text-zinc-300">:</span>
+                                  <span className="text-[11px] truncate block min-w-0 text-zinc-700 dark:text-zinc-200">
+                                    {svc.uniform}
                                   </span>
                                 </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-
-                        <div className="mt-2 border-t border-zinc-200/80 dark:border-zinc-800/80 pt-2">
-                          {svc.uniformWomen && svc.uniformMen ? (
-                            <div className="space-y-1">
-                              <div className="inline-flex min-w-0 items-center gap-1.5">
-                                <Venus className="h-3.5 w-3.5 shrink-0 text-zinc-600 dark:text-zinc-300" aria-hidden />
-                                <span className="text-[11px] font-medium shrink-0 text-zinc-600 dark:text-zinc-300">:</span>
-                                <span className="text-[11px] truncate block min-w-0 text-zinc-700 dark:text-zinc-200">
-                                  {svc.uniformWomen}
-                                </span>
-                              </div>
-                              <div className="inline-flex min-w-0 items-center gap-1.5">
-                                <Mars className="h-3.5 w-3.5 shrink-0 text-zinc-600 dark:text-zinc-300" aria-hidden />
-                                <span className="text-[11px] font-medium shrink-0 text-zinc-600 dark:text-zinc-300">:</span>
-                                <span className="text-[11px] truncate block min-w-0 text-zinc-700 dark:text-zinc-200">
-                                  {svc.uniformMen}
-                                </span>
-                              </div>
+                              )}
                             </div>
-                          ) : (
-                            <div className="inline-flex min-w-0 items-center gap-1.5">
-                              <Shirt className="h-3.5 w-3.5 shrink-0 text-zinc-600 dark:text-zinc-300" aria-hidden />
-                              <span className="text-[11px] font-medium shrink-0 text-zinc-600 dark:text-zinc-300">:</span>
-                              <span className="text-[11px] truncate block min-w-0 text-zinc-700 dark:text-zinc-200">
-                                {svc.uniform}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </>
-                    ) : null}
+                          </>
+                        ) : null}
+                      </div>
+                    ))}
                     {isOverlap ? <div className="h-6 shrink-0" aria-hidden /> : null}
                   </div>
                 ) : null}
 
-                {!svc && isRehearsal ? (
+                {dayServices.length === 0 && isRehearsal ? (
                   <div className="mt-2 space-y-1 rounded-sm border border-orange-500 bg-orange-500/95 px-2 py-1 text-white">
                     <div className="w-full text-center text-[10px] font-semibold">Rehearsal</div>
                     {rehearsalServiceLines.map((line, idx) => (
@@ -640,12 +672,12 @@ export default function BandCalendarMonth() {
             {/* Fixed 3-column print layout — narrower cards than 2-up; no viewport breakpoints. */}
             <div className="grid grid-cols-3 gap-2 pb-1">
               {eventDateKeys.map((key) => {
-                const svc = serviceByDate.get(key);
+                const dayServices = servicesByDate.get(key) ?? [];
                 const date = parseYMDLocal(key);
                 if (!date) return null;
 
                 const isRehearsal = rehearsalDates.has(key);
-                const isOverlap = Boolean(svc) && isRehearsal;
+                const isOverlap = dayServices.length > 0 && isRehearsal;
                 const isPast = key < todayKey;
                 const isWednesdayRehearsal = isRehearsal && date.getDay() === 3;
                 const rehearsalServiceLines = isWednesdayRehearsal
@@ -668,7 +700,7 @@ export default function BandCalendarMonth() {
                     key={key}
                     className={[
                       "min-h-28 rounded-md border p-3 relative overflow-visible min-w-0",
-                      getServiceExportCardClass(svc, isPast),
+                      getServiceExportCardClass(dayServices[0], isPast),
                     ].join(" ")}
                   >
                     {isOverlap ? (
@@ -688,88 +720,95 @@ export default function BandCalendarMonth() {
                       </div>
                     </div>
 
-                    {svc ? (
-                      <div className="mt-2">
-                        <div className="text-xs font-semibold break-words leading-snug">
-                          {formatServiceTitleForDate(date, svc.title)}
-                        </div>
-                        {svc.notes.length > 0 ? (
-                          <ul className="mt-1 list-disc pl-4 space-y-0.5 text-[10px] leading-snug text-zinc-700">
-                            {svc.notes.map((note, idx) => (
-                              <li key={`${key}-export-note-${idx}`} className="break-words">
-                                {note}
-                              </li>
-                            ))}
-                          </ul>
-                        ) : null}
-                        {svc.showBandDetails ? (
-                          <>
-                            <div className="mt-2 space-y-1">
-                              {ROLE_ORDER.map((role) => {
-                                const assignment = svc.assignments.find((a) => a.role === role);
-                                const names = Array.isArray(assignment?.musicianNames)
-                                  ? assignment.musicianNames.filter(
-                                      (n) => typeof n === "string" && n.trim().length > 0
-                                    )
-                                  : [];
-                                const displayNames = names.join(" | ");
-                                const hasName = displayNames.length > 0;
-                                const lineClass = ROLE_EXPORT_LINE_CLASS[role];
-                                const RoleIcon = ROLE_MOBILE_ICON[role];
-
-                                return (
-                                  <div key={role} className="flex w-full min-w-0 items-start gap-1.5">
-                                    <RoleIcon className={["h-3.5 w-3.5 shrink-0 mt-0.5", lineClass].join(" ")} aria-hidden />
-                                    <span className={["text-[11px] font-semibold shrink-0 pt-0.5", lineClass].join(" ")}>:</span>
-                                    <span
-                                      className={[
-                                        "text-[11px] min-w-0 flex-1 break-words leading-snug",
-                                        lineClass,
-                                        !hasName ? "font-semibold" : "",
-                                      ].join(" ")}
-                                    >
-                                      {hasName ? displayNames : "—"}
-                                    </span>
-                                  </div>
-                                );
-                              })}
+                    {dayServices.length > 0 ? (
+                      <div className="mt-2 space-y-3">
+                        {dayServices.map((svc, svcIdx) => (
+                          <div
+                            key={`${key}-export-${svc._id}`}
+                            className={svcIdx > 0 ? "border-t border-zinc-200 pt-2" : ""}
+                          >
+                            <div className="text-xs font-semibold break-words leading-snug">
+                              {formatServiceTitleForDate(date, svc.title)}
                             </div>
+                            {svc.notes.length > 0 ? (
+                              <ul className="mt-1 list-disc pl-4 space-y-0.5 text-[10px] leading-snug text-zinc-700">
+                                {svc.notes.map((note, idx) => (
+                                  <li key={`${key}-export-note-${svc._id}-${idx}`} className="break-words">
+                                    {note}
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : null}
+                            {svc.showBandDetails ? (
+                              <>
+                                <div className="mt-2 space-y-1">
+                                  {ROLE_ORDER.map((role) => {
+                                    const assignment = svc.assignments.find((a) => a.role === role);
+                                    const names = Array.isArray(assignment?.musicianNames)
+                                      ? assignment.musicianNames.filter(
+                                          (n) => typeof n === "string" && n.trim().length > 0
+                                        )
+                                      : [];
+                                    const displayNames = names.join(" | ");
+                                    const hasName = displayNames.length > 0;
+                                    const lineClass = ROLE_EXPORT_LINE_CLASS[role];
+                                    const RoleIcon = ROLE_MOBILE_ICON[role];
 
-                            <div className="mt-2 border-t border-zinc-200 pt-2">
-                              {svc.uniformWomen && svc.uniformMen ? (
-                                <div className="space-y-2">
-                                  <div className="flex min-w-0 items-start gap-1.5">
-                                    <Venus className="h-3.5 w-3.5 shrink-0 mt-0.5 text-zinc-700" aria-hidden />
-                                    <span className="text-[11px] font-semibold shrink-0 text-zinc-700 pt-0.5">:</span>
-                                    <span className="text-[11px] min-w-0 flex-1 break-words leading-snug text-zinc-800">
-                                      {svc.uniformWomen}
-                                    </span>
-                                  </div>
-                                  <div className="flex min-w-0 items-start gap-1.5">
-                                    <Mars className="h-3.5 w-3.5 shrink-0 mt-0.5 text-zinc-700" aria-hidden />
-                                    <span className="text-[11px] font-semibold shrink-0 text-zinc-700 pt-0.5">:</span>
-                                    <span className="text-[11px] min-w-0 flex-1 break-words leading-snug text-zinc-800">
-                                      {svc.uniformMen}
-                                    </span>
-                                  </div>
+                                    return (
+                                      <div key={`${svc._id}-${role}`} className="flex w-full min-w-0 items-start gap-1.5">
+                                        <RoleIcon className={["h-3.5 w-3.5 shrink-0 mt-0.5", lineClass].join(" ")} aria-hidden />
+                                        <span className={["text-[11px] font-semibold shrink-0 pt-0.5", lineClass].join(" ")}>:</span>
+                                        <span
+                                          className={[
+                                            "text-[11px] min-w-0 flex-1 break-words leading-snug",
+                                            lineClass,
+                                            !hasName ? "font-semibold" : "",
+                                          ].join(" ")}
+                                        >
+                                          {hasName ? displayNames : "—"}
+                                        </span>
+                                      </div>
+                                    );
+                                  })}
                                 </div>
-                              ) : (
-                                <div className="flex min-w-0 items-start gap-1.5">
-                                  <Shirt className="h-3.5 w-3.5 shrink-0 mt-0.5 text-zinc-700" aria-hidden />
-                                  <span className="text-[11px] font-semibold shrink-0 text-zinc-700 pt-0.5">:</span>
-                                  <span className="text-[11px] min-w-0 flex-1 break-words leading-snug text-zinc-800">
-                                    {svc.uniform}
-                                  </span>
+
+                                <div className="mt-2 border-t border-zinc-200 pt-2">
+                                  {svc.uniformWomen && svc.uniformMen ? (
+                                    <div className="space-y-2">
+                                      <div className="flex min-w-0 items-start gap-1.5">
+                                        <Venus className="h-3.5 w-3.5 shrink-0 mt-0.5 text-zinc-700" aria-hidden />
+                                        <span className="text-[11px] font-semibold shrink-0 text-zinc-700 pt-0.5">:</span>
+                                        <span className="text-[11px] min-w-0 flex-1 break-words leading-snug text-zinc-800">
+                                          {svc.uniformWomen}
+                                        </span>
+                                      </div>
+                                      <div className="flex min-w-0 items-start gap-1.5">
+                                        <Mars className="h-3.5 w-3.5 shrink-0 mt-0.5 text-zinc-700" aria-hidden />
+                                        <span className="text-[11px] font-semibold shrink-0 text-zinc-700 pt-0.5">:</span>
+                                        <span className="text-[11px] min-w-0 flex-1 break-words leading-snug text-zinc-800">
+                                          {svc.uniformMen}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="flex min-w-0 items-start gap-1.5">
+                                      <Shirt className="h-3.5 w-3.5 shrink-0 mt-0.5 text-zinc-700" aria-hidden />
+                                      <span className="text-[11px] font-semibold shrink-0 text-zinc-700 pt-0.5">:</span>
+                                      <span className="text-[11px] min-w-0 flex-1 break-words leading-snug text-zinc-800">
+                                        {svc.uniform}
+                                      </span>
+                                    </div>
+                                  )}
                                 </div>
-                              )}
-                            </div>
-                          </>
-                        ) : null}
+                              </>
+                            ) : null}
+                          </div>
+                        ))}
                         {isOverlap ? <div className="h-6 shrink-0" aria-hidden /> : null}
                       </div>
                     ) : null}
 
-                    {!svc && isRehearsal ? (
+                    {dayServices.length === 0 && isRehearsal ? (
                       <div className="mt-2 space-y-1 rounded-sm border border-orange-500 bg-orange-500/95 px-2 py-1 text-white">
                         <div className="w-full text-center text-[10px] font-semibold">Rehearsal</div>
                         {rehearsalServiceLines.map((line, idx) => (

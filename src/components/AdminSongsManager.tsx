@@ -27,6 +27,8 @@ type SongDraft = {
   genre: "worship" | "praise" | "other";
   youtubeUrl: string;
   spotifyUrl: string;
+  defaultKey: string;
+  tempoBpm: string;
   notes: string;
   active: boolean;
   lyricsSections: LyricsSectionsDraft;
@@ -49,10 +51,38 @@ const EMPTY_DRAFT: SongDraft = {
   genre: "worship",
   youtubeUrl: "",
   spotifyUrl: "",
+  defaultKey: "",
+  tempoBpm: "",
   notes: "",
   active: true,
   lyricsSections: EMPTY_LYRICS,
 };
+
+function draftToApiBody(draft: SongDraft) {
+  const tempoTrim = draft.tempoBpm.trim();
+  let tempoBpm: number | null | undefined = undefined;
+  if (tempoTrim === "") {
+    tempoBpm = undefined;
+  } else {
+    const n = Number.parseInt(tempoTrim, 10);
+    if (!Number.isFinite(n)) {
+      tempoBpm = undefined;
+    } else {
+      tempoBpm = n;
+    }
+  }
+  return {
+    name: draft.name,
+    genre: draft.genre,
+    youtubeUrl: draft.youtubeUrl || null,
+    spotifyUrl: draft.spotifyUrl || null,
+    defaultKey: draft.defaultKey.trim() || null,
+    tempoBpm,
+    notes: draft.notes || null,
+    active: draft.active,
+    lyricsSections: draft.lyricsSections,
+  };
+}
 
 const LYRICS_FIELDS: Array<{ key: keyof LyricsSectionsDraft; label: string }> = [
   { key: "intro", label: "Intro" },
@@ -74,6 +104,8 @@ function toDraft(song: Song): SongDraft {
     genre: song.genre,
     youtubeUrl: song.youtubeUrl ?? "",
     spotifyUrl: song.spotifyUrl ?? "",
+    defaultKey: song.defaultKey ?? "",
+    tempoBpm: song.tempoBpm != null ? String(song.tempoBpm) : "",
     notes: song.notes ?? "",
     active: song.active,
     lyricsSections: {
@@ -139,7 +171,7 @@ export default function AdminSongsManager({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify(createDraft),
+        body: JSON.stringify(draftToApiBody(createDraft)),
       });
       const payload = (await res.json().catch(() => ({}))) as {
         error?: string;
@@ -173,7 +205,7 @@ export default function AdminSongsManager({
         credentials: "include",
         body: JSON.stringify({
           songId: editingSong._id,
-          ...editDraft,
+          ...draftToApiBody(editDraft),
         }),
       });
       const payload = (await res.json().catch(() => ({}))) as { error?: string };
@@ -435,6 +467,28 @@ export default function AdminSongsManager({
                   placeholder="https://open.spotify.com/..."
                 />
               </label>
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-200">
+                Default key
+                <input
+                  type="text"
+                  value={editDraft.defaultKey}
+                  onChange={(e) => setEditDraft((prev) => ({ ...prev, defaultKey: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm"
+                  placeholder="e.g. G, Bb"
+                />
+              </label>
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-200">
+                Tempo (BPM)
+                <input
+                  type="number"
+                  min={1}
+                  max={400}
+                  value={editDraft.tempoBpm}
+                  onChange={(e) => setEditDraft((prev) => ({ ...prev, tempoBpm: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm"
+                  placeholder="Optional"
+                />
+              </label>
               <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-200 sm:col-span-2">
                 Notes
                 <textarea
@@ -566,6 +620,28 @@ export default function AdminSongsManager({
                   onChange={(e) => setCreateDraft((prev) => ({ ...prev, spotifyUrl: e.target.value }))}
                   className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm"
                   placeholder="https://open.spotify.com/..."
+                />
+              </label>
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-200">
+                Default key
+                <input
+                  type="text"
+                  value={createDraft.defaultKey}
+                  onChange={(e) => setCreateDraft((prev) => ({ ...prev, defaultKey: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm"
+                  placeholder="e.g. G, Bb"
+                />
+              </label>
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-200">
+                Tempo (BPM)
+                <input
+                  type="number"
+                  min={1}
+                  max={400}
+                  value={createDraft.tempoBpm}
+                  onChange={(e) => setCreateDraft((prev) => ({ ...prev, tempoBpm: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm"
+                  placeholder="Optional"
                 />
               </label>
               <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-200 sm:col-span-2">

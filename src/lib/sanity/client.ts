@@ -5,7 +5,16 @@ export type MusicianAssignment = {
   musicianNames: string[];
 };
 
+export type SetlistStatus = "draft" | "ready" | "final" | "archived";
+
+export type SetlistSummary = {
+  _id: string;
+  title: string | null;
+  status: SetlistStatus;
+};
+
 export type Service = {
+  _id: string;
   date: string; // "YYYY-MM-DD"
   title: string;
   notes: string[];
@@ -15,6 +24,7 @@ export type Service = {
   uniformWomen: string | null;
   uniformMen: string | null;
   assignments: MusicianAssignment[];
+  setlist: SetlistSummary | null;
 };
 
 export type Song = {
@@ -26,6 +36,8 @@ export type Song = {
   tags: string[];
   youtubeUrl: string | null;
   spotifyUrl: string | null;
+  defaultKey: string | null;
+  tempoBpm: number | null;
   lyricsSections: {
     intro: string | null;
     hook: string | null;
@@ -48,16 +60,31 @@ export type SetlistSongItem = {
   songName: string | null;
   songGenre: Song["genre"] | null;
   note: string | null;
+  keyOverride: string | null;
+  capo: string | null;
+  tempoOverride: number | null;
+  defaultKey: string | null;
+  tempoBpm: number | null;
 };
 
 export type Setlist = {
   _id: string;
   title: string | null;
-  date: string;
-  serviceType: "sunday_morning" | "sunday_evening" | "midweek" | "special";
+  status: SetlistStatus;
   notes: string | null;
-  active: boolean;
+  serviceId: string;
+  serviceDate: string;
+  serviceTitle: string;
+  leadVocalNames: string[];
   songs: SetlistSongItem[];
+};
+
+export type SetlistDetailSong = SetlistSongItem & {
+  lyricsSections: Song["lyricsSections"];
+};
+
+export type SetlistDetail = Omit<Setlist, "songs"> & {
+  songs: SetlistDetailSong[];
 };
 
 const ROLE_ORDER = [
@@ -69,6 +96,18 @@ const ROLE_ORDER = [
   "Drummer",
   "MD",
 ] as const;
+
+function normalizeSetlistStatusValue(value: unknown): SetlistStatus {
+  if (
+    value === "draft" ||
+    value === "ready" ||
+    value === "final" ||
+    value === "archived"
+  ) {
+    return value;
+  }
+  return "draft";
+}
 
 let cachedClient:
   | ReturnType<typeof createClient>
@@ -105,6 +144,7 @@ export async function fetchServicesForRange(
 ): Promise<Service[]> {
   // Expected input: "YYYY-MM-DD" (Sanity `date` field comparisons work well with this).
   const query = `*[_type == "service" && date >= $from && date <= $to]{
+    _id,
     title,
     date,
     notes,
@@ -119,13 +159,19 @@ export async function fetchServicesForRange(
     "leadGuitarNames": leadGuitar[]->name,
     "bassGuitarNames": bassGuitar[]->name,
     "drummerNames": drummer[]->name,
-    "mdNames": md[]->name
+    "mdNames": md[]->name,
+    "setlist": *[_type == "setlist" && service._ref == ^._id][0]{
+      _id,
+      title,
+      status
+    }
   }`;
 
   const client = getSanityClient();
 
   const raw = await client.fetch<
     Array<{
+      _id: string;
       title: string;
       date: string;
       notes?: Array<string | null> | null;
@@ -141,6 +187,7 @@ export async function fetchServicesForRange(
       bassGuitarNames?: Array<string | null> | null;
       drummerNames?: Array<string | null> | null;
       mdNames?: Array<string | null> | null;
+      setlist?: { _id: string; title?: string | null; status?: string | null } | null;
     }>
   >(query, { from, to });
 
@@ -172,6 +219,7 @@ export async function fetchServicesForRange(
   };
 
   return raw.map((s) => ({
+    _id: s._id,
     date: s.date,
     title: s.title,
     notes: normalizeNotes(s.notes),
@@ -180,6 +228,17 @@ export async function fetchServicesForRange(
     uniform: normalizeUniformValue(s.uniform) ?? "Smart Casual",
     uniformWomen: normalizeUniformValue(s.uniformWomen),
     uniformMen: normalizeUniformValue(s.uniformMen),
+    setlist:
+      s.setlist && typeof s.setlist._id === "string"
+        ? {
+            _id: s.setlist._id,
+            title:
+              typeof s.setlist.title === "string" && s.setlist.title.trim()
+                ? s.setlist.title.trim()
+                : null,
+            status: normalizeSetlistStatusValue(s.setlist.status),
+          }
+        : null,
     assignments: [
       { role: "Lead Vocal", musicianNames: normalizeNames(s.leadVocalNames) },
       { role: "Lead Keyboard", musicianNames: normalizeNames(s.leadKeyboardNames) },
@@ -294,6 +353,8 @@ export async function fetchSongs(): Promise<Song[]> {
     "tags": tags[]->title,
     youtubeUrl,
     spotifyUrl,
+    defaultKey,
+    tempoBpm,
     lyricsSections{
       intro,
       hook,
@@ -320,6 +381,8 @@ export async function fetchSongs(): Promise<Song[]> {
       tags?: Array<string | null> | null;
       youtubeUrl?: string | null;
       spotifyUrl?: string | null;
+      defaultKey?: string | null;
+      tempoBpm?: number | null;
       lyricsSections?: {
         intro?: string | null;
         hook?: string | null;
@@ -368,6 +431,11 @@ export async function fetchSongs(): Promise<Song[]> {
         tags: normalizeStringArray(song.tags),
         youtubeUrl: normalizeString(song.youtubeUrl),
         spotifyUrl: normalizeString(song.spotifyUrl),
+        defaultKey: normalizeString(song.defaultKey),
+        tempoBpm:
+          typeof song.tempoBpm === "number" && Number.isFinite(song.tempoBpm)
+            ? song.tempoBpm
+            : null,
         lyricsSections: {
           intro: normalizeString(song.lyricsSections?.intro),
           hook: normalizeString(song.lyricsSections?.hook),
@@ -387,20 +455,27 @@ export async function fetchSongs(): Promise<Song[]> {
 }
 
 export async function fetchSetlists(): Promise<Setlist[]> {
-  const query = `*[_type == "setlist"] | order(date desc){
+  const query = `*[_type == "setlist" && defined(service)] | order(service->date desc){
     _id,
     title,
-    date,
-    serviceType,
+    status,
     notes,
-    active,
+    "serviceId": service._id,
+    "serviceDate": service->date,
+    "serviceTitle": service->title,
+    "leadVocalNames": service->leadVocal[]->name,
     "songs": songs[]{
       _key,
       note,
+      keyOverride,
+      capo,
+      tempoOverride,
       "songId": song._ref,
       "songNumber": song->number,
       "songName": song->name,
-      "songGenre": song->genre
+      "songGenre": song->genre,
+      "defaultKey": song->defaultKey,
+      "tempoBpm": song->tempoBpm
     }
   }`;
 
@@ -409,17 +484,24 @@ export async function fetchSetlists(): Promise<Setlist[]> {
     Array<{
       _id: string;
       title?: string | null;
-      date?: string | null;
-      serviceType?: string | null;
+      status?: string | null;
       notes?: string | null;
-      active?: boolean | null;
+      serviceId?: string | null;
+      serviceDate?: string | null;
+      serviceTitle?: string | null;
+      leadVocalNames?: Array<string | null> | null;
       songs?: Array<{
         _key?: string | null;
         note?: string | null;
+        keyOverride?: string | null;
+        capo?: string | null;
+        tempoOverride?: number | null;
         songId?: string | null;
         songNumber?: number | null;
         songName?: string | null;
         songGenre?: string | null;
+        defaultKey?: string | null;
+        tempoBpm?: number | null;
       } | null> | null;
     }>
   >(query);
@@ -430,20 +512,6 @@ export async function fetchSetlists(): Promise<Setlist[]> {
     return trimmed.length > 0 ? trimmed : null;
   };
 
-  const normalizeServiceType = (
-    value: unknown
-  ): "sunday_morning" | "sunday_evening" | "midweek" | "special" => {
-    if (
-      value === "sunday_morning" ||
-      value === "sunday_evening" ||
-      value === "midweek" ||
-      value === "special"
-    ) {
-      return value;
-    }
-    return "special";
-  };
-
   const normalizeSongGenre = (value: unknown): Song["genre"] | null => {
     if (value === "worship" || value === "praise" || value === "other") return value;
     return null;
@@ -451,13 +519,29 @@ export async function fetchSetlists(): Promise<Setlist[]> {
 
   return raw
     .map((setlist) => {
-      const date = normalizeString(setlist.date);
-      if (!date) return null;
+      const serviceId = normalizeString(setlist.serviceId);
+      const serviceDate = normalizeString(setlist.serviceDate);
+      const serviceTitleRaw = typeof setlist.serviceTitle === "string" ? setlist.serviceTitle.trim() : "";
+      if (!serviceId || !serviceDate) return null;
+
+      const leadVocalNames = Array.isArray(setlist.leadVocalNames)
+        ? setlist.leadVocalNames
+            .map((n) => (typeof n === "string" ? n.trim() : ""))
+            .filter((n) => n.length > 0)
+        : [];
 
       const songs = Array.isArray(setlist.songs)
         ? setlist.songs
             .map((item, idx) => {
               if (!item) return null;
+              const tempoOverride =
+                typeof item.tempoOverride === "number" && Number.isFinite(item.tempoOverride)
+                  ? item.tempoOverride
+                  : null;
+              const tempoBpm =
+                typeof item.tempoBpm === "number" && Number.isFinite(item.tempoBpm)
+                  ? item.tempoBpm
+                  : null;
               return {
                 _key: normalizeString(item._key) ?? `row-${idx}`,
                 songId: normalizeString(item.songId),
@@ -465,6 +549,11 @@ export async function fetchSetlists(): Promise<Setlist[]> {
                 songName: normalizeString(item.songName),
                 songGenre: normalizeSongGenre(item.songGenre),
                 note: normalizeString(item.note),
+                keyOverride: normalizeString(item.keyOverride),
+                capo: normalizeString(item.capo),
+                tempoOverride,
+                defaultKey: normalizeString(item.defaultKey),
+                tempoBpm,
               } satisfies SetlistSongItem;
             })
             .filter((item): item is SetlistSongItem => Boolean(item))
@@ -473,13 +562,182 @@ export async function fetchSetlists(): Promise<Setlist[]> {
       return {
         _id: setlist._id,
         title: normalizeString(setlist.title),
-        date,
-        serviceType: normalizeServiceType(setlist.serviceType),
+        status: normalizeSetlistStatusValue(setlist.status),
         notes: normalizeString(setlist.notes),
-        active: setlist.active !== false,
+        serviceId,
+        serviceDate,
+        serviceTitle: serviceTitleRaw.length > 0 ? serviceTitleRaw : "Service",
+        leadVocalNames,
         songs,
       } satisfies Setlist;
     })
     .filter((item): item is Setlist => Boolean(item));
+}
+
+export async function fetchSetlistById(id: string): Promise<SetlistDetail | null> {
+  const trimmed = id.trim();
+  if (!trimmed) return null;
+
+  const query = `*[_type == "setlist" && _id == $id && defined(service)][0]{
+    _id,
+    title,
+    status,
+    notes,
+    "serviceId": service._id,
+    "serviceDate": service->date,
+    "serviceTitle": service->title,
+    "leadVocalNames": service->leadVocal[]->name,
+    "songs": songs[]{
+      _key,
+      note,
+      keyOverride,
+      capo,
+      tempoOverride,
+      "songId": song._ref,
+      "songNumber": song->number,
+      "songName": song->name,
+      "songGenre": song->genre,
+      "defaultKey": song->defaultKey,
+      "tempoBpm": song->tempoBpm,
+      "lyricsSections": song->lyricsSections{
+        intro,
+        hook,
+        verse1,
+        verse2,
+        preChorus,
+        chorus,
+        bridge,
+        outro,
+        ending
+      }
+    }
+  }`;
+
+  const client = getSanityClient();
+  const raw = await client.fetch<
+    | {
+        _id: string;
+        title?: string | null;
+        status?: string | null;
+        notes?: string | null;
+        serviceId?: string | null;
+        serviceDate?: string | null;
+        serviceTitle?: string | null;
+        leadVocalNames?: Array<string | null> | null;
+        songs?: Array<{
+          _key?: string | null;
+          note?: string | null;
+          keyOverride?: string | null;
+          capo?: string | null;
+          tempoOverride?: number | null;
+          songId?: string | null;
+          songNumber?: number | null;
+          songName?: string | null;
+          songGenre?: string | null;
+          defaultKey?: string | null;
+          tempoBpm?: number | null;
+          lyricsSections?: {
+            intro?: string | null;
+            hook?: string | null;
+            verse1?: string | null;
+            verse2?: string | null;
+            preChorus?: string | null;
+            chorus?: string | null;
+            bridge?: string | null;
+            outro?: string | null;
+            ending?: string | null;
+          } | null;
+        } | null> | null;
+      }
+    | null
+  >(query, { id: trimmed });
+
+  if (!raw?._id) return null;
+
+  const normalizeString = (value: unknown): string | null => {
+    if (typeof value !== "string") return null;
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  };
+
+  const normalizeSongGenre = (value: unknown): Song["genre"] | null => {
+    if (value === "worship" || value === "praise" || value === "other") return value;
+    return null;
+  };
+
+  const normalizeLyrics = (ls: {
+    intro?: string | null;
+    hook?: string | null;
+    verse1?: string | null;
+    verse2?: string | null;
+    preChorus?: string | null;
+    chorus?: string | null;
+    bridge?: string | null;
+    outro?: string | null;
+    ending?: string | null;
+  } | null | undefined): Song["lyricsSections"] => ({
+    intro: normalizeString(ls?.intro),
+    hook: normalizeString(ls?.hook),
+    verse1: normalizeString(ls?.verse1),
+    verse2: normalizeString(ls?.verse2),
+    preChorus: normalizeString(ls?.preChorus),
+    chorus: normalizeString(ls?.chorus),
+    bridge: normalizeString(ls?.bridge),
+    outro: normalizeString(ls?.outro),
+    ending: normalizeString(ls?.ending),
+  });
+
+  const serviceId = normalizeString(raw.serviceId);
+  const serviceDate = normalizeString(raw.serviceDate);
+  const serviceTitleRaw = typeof raw.serviceTitle === "string" ? raw.serviceTitle.trim() : "";
+  if (!serviceId || !serviceDate) return null;
+
+  const leadVocalNames = Array.isArray(raw.leadVocalNames)
+    ? raw.leadVocalNames
+        .map((n) => (typeof n === "string" ? n.trim() : ""))
+        .filter((n) => n.length > 0)
+    : [];
+
+  const songs = Array.isArray(raw.songs)
+    ? raw.songs
+        .map((item, idx) => {
+          if (!item) return null;
+          const tempoOverride =
+            typeof item.tempoOverride === "number" && Number.isFinite(item.tempoOverride)
+              ? item.tempoOverride
+              : null;
+          const tempoBpm =
+            typeof item.tempoBpm === "number" && Number.isFinite(item.tempoBpm)
+              ? item.tempoBpm
+              : null;
+          return {
+            _key: normalizeString(item._key) ?? `row-${idx}`,
+            songId: normalizeString(item.songId),
+            songNumber: typeof item.songNumber === "number" ? item.songNumber : null,
+            songName: normalizeString(item.songName),
+            songGenre: normalizeSongGenre(item.songGenre),
+            note: normalizeString(item.note),
+            keyOverride: normalizeString(item.keyOverride),
+            capo: normalizeString(item.capo),
+            tempoOverride,
+            defaultKey: normalizeString(item.defaultKey),
+            tempoBpm,
+            lyricsSections: normalizeLyrics(item.lyricsSections ?? undefined),
+          } satisfies SetlistDetailSong;
+        })
+        .filter((item): item is SetlistDetailSong => Boolean(item))
+    : [];
+
+  return {
+    _id: raw._id,
+    title: normalizeString(raw.title),
+    status: normalizeSetlistStatusValue(raw.status),
+    notes: normalizeString(raw.notes),
+    serviceId,
+    serviceDate,
+    serviceTitle: serviceTitleRaw.length > 0 ? serviceTitleRaw : "Service",
+    leadVocalNames,
+    songs,
+  };
 }
 

@@ -1,92 +1,62 @@
-# Setlists Phase 1 Tracker
+# Setlists – schema and app integration
 
-This document tracks the initial setlist foundation so we can build incrementally.
+This document describes the setlist model, how it links to the band calendar, and export surfaces.
 
-## Goal
+## Goals
 
-Introduce a reliable first version of setlists that allows:
+- One setlist per **service** (calendar slot), so date and “which service” are unambiguous.
+- Ordered songs from the song library, with optional **per-service overrides** (key, tempo, capo).
+- **Status** workflow for draft → ready → final → archived.
+- **Band** and **media** print/PDF exports.
 
-- defining service date + service type
-- selecting ordered songs from the song library
-- storing optional setlist and per-item notes
-- viewing/searching setlists in the app
+## Sanity schema
 
-## Implemented in Phase 1
+### `setlist`
 
-- [x] Sanity schema: `setlist`
-  - fields: `title`, `date`, `serviceType`, `songs[]`, `notes`, `active`
-  - ordered songs via array drag-and-drop
-  - each song row supports optional item note
-- [x] Schema registration in `sanity/schemaTypes/index.ts`
-- [x] Client types and fetch function:
-  - `SetlistSongItem`
-  - `Setlist`
-  - `fetchSetlists()`
-- [x] API endpoint: `GET /api/setlists`
-- [x] App page: `/setlists`
-- [x] UI component: searchable setlist repository view
-- [x] Home quick link to Setlists
+- **`service`** (reference to `service`, required): anchors the setlist to a calendar service. At most one setlist per service (enforced in Studio validation).
+- **`title`** (optional string).
+- **`status`**: `draft` | `ready` | `final` | `archived` (default `draft`).
+- **`songs`** (ordered array): each item has `song` (reference), optional `note`, `keyOverride`, `capo`, `tempoOverride` (BPM).
+- **`notes`** (optional text).
+- **`duplicatedFrom`** (optional reference to another `setlist`).
 
-## Data Shape (Current)
+Date and service slot are **not** duplicated on the setlist; they come from `service->date` and `service->title`.
 
-Setlist document:
+### `song`
 
-- `_id`
-- `title` (optional)
-- `date` (required)
-- `serviceType` (`sunday_morning` | `sunday_evening` | `midweek` | `special`)
-- `songs[]`:
-  - `song` reference (required)
-  - `note` (optional)
-- `notes` (optional)
-- `active` (boolean)
+- **`defaultKey`** (optional string) and **`tempoBpm`** (optional integer, 1–400): defaults for band sheets; setlist line overrides win when present.
 
-## Known Limits in Phase 1
+### `service`
 
-- No dedicated setlist create/edit UI in app yet (managed in Sanity Studio)
-- No duplication action ("copy last setlist")
-- No PDF export for setlists yet
-- No role-based permissions specific to setlists
+No extra field required: setlists reference services. Roster roles (e.g. **Lead vocal**) stay on the service document.
 
-## Recommended Phase 2
+## App behaviour
 
-- Add app-side create/edit flow for setlists
-- Add "Duplicate previous setlist" shortcut
-- Add setlist print/export view
-- Add filters by date range and service type
-- Add optional lock/finalize status once rehearsal is complete
+- **`fetchSetlists()`** (`src/lib/sanity/client.ts`): projects service date/title, lead vocal names, song defaults and line overrides; orders by `service->date` descending.
+- **`fetchSetlistById(id)`**: full detail including **lyrics** for media export.
+- **`fetchServicesForRange()`**: each service includes **`_id`** and optional **`setlist`** summary `{ _id, title, status }` for the linked setlist.
 
-## Product Notes Backlog
+### Routes
 
-Captured notes to track after initial setlist foundation:
+- **`/setlists`**: searchable list (`SetlistRepository`), anchor `id` on each card for deep links (`/setlists#<setlistId>`). Links to band and media export URLs.
+- **`/setlists/[id]/export/band`**: band-oriented table (key, tempo, capo, notes); Print + Download PDF.
+- **`/setlists/[id]/export/media`**: ordered songs with lyrics sections; Print + Download PDF.
 
-- **Setlist foundation now (small step)**: Add a setlist document with `date`, `serviceType`, and ordered `songs[]` references. Even basic version unlocks the "song number for setlist" workflow quickly.
-- **Song key + tempo fields**: Add `defaultKey` and `tempoBpm` to songs. These are practical rehearsal fields after lyrics.
-- **Quick "copy setlist" action**: Ability to duplicate last Sunday's setlist and tweak.
-- **Search quality boost**: Add fuzzy matching for names (typos/partials), and optional exact-number quick search (`#23`).
-- **Lyrics UX polish**: In modal, add section jump chips at top (`Intro`, `Chorus`, etc.) when sections are long.
-- **Tag hygiene guardrails**: Keep `songTheme`/`songTag` curated: mark inactive instead of delete, and hide inactive in pickers.
-- **Basic data constraints**: Prevent duplicate song names (or warn), and ensure URLs are valid YouTube/Spotify domains if desired.
-- **Performance/safety for growth**: If songs get large, paginate table or lazy-load lyrics modal content only on open.
-- **Export option (later)**: "Print setlist sheet" with ordered sections for vocalist + separate compact band view.
+### Schedule page
 
-## Admin Portal Notes
+- **`BandCalendarMonth`**: supports **multiple services on the same day**; each service block can show a **Setlist** link when a linked setlist exists.
 
-Goal: provide basic non-Studio admin actions using the same auth session pattern used in Contributions.
+## Studio workflow
 
-### Implemented (Phase 1)
+1. Ensure **service** documents exist for each slot (same day can have multiple services with different titles).
+2. Create a **setlist**, choose the **service**, set **status**, order **songs**, add overrides as needed.
+3. Open **`/setlists`** or use **Export** links for band/media.
 
-- New `/admin` page with lock/unlock using contributions auth cookie/session.
-- Basic "Add Song" form outside Studio.
-- Protected `POST /api/admin/songs` route that:
-  - requires valid contributions auth cookie
-  - auto-assigns next song number
-  - enforces duplicate name check
-  - validates YouTube/Spotify domains
-  - saves optional lyrics sections, notes, and active status
+## API
 
-### Planned next
+- **`GET /api/setlists`**: returns JSON from `fetchSetlists()` (unchanged pattern).
 
-- Edit and archive songs from the admin page
-- Setlist create/edit tools outside Studio
-- Roster management outside Studio
+## Known limits / next steps
+
+- No in-app create/edit for setlists yet (Studio only).
+- Optional: duplicate setlist action, finalize lock, richer PDF multi-page layout for very long lyric exports.

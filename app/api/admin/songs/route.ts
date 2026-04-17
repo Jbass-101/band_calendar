@@ -9,6 +9,8 @@ type CreateSongBody = {
   genre?: "worship" | "praise" | "other";
   youtubeUrl?: string | null;
   spotifyUrl?: string | null;
+  defaultKey?: string | null;
+  tempoBpm?: number | null;
   notes?: string | null;
   active?: boolean;
   lyricsSections?: {
@@ -83,11 +85,27 @@ function validateSongBody(body: CreateSongBody) {
     return { error: "Use a valid Spotify URL (spotify.com)." };
   }
 
+  let tempoBpm: number | null | undefined = undefined;
+  if (body.tempoBpm === null) {
+    tempoBpm = null;
+  } else if (typeof body.tempoBpm === "number") {
+    if (
+      !Number.isFinite(body.tempoBpm) ||
+      body.tempoBpm < 1 ||
+      body.tempoBpm > 400
+    ) {
+      return { error: "Tempo must be between 1 and 400 BPM." };
+    }
+    tempoBpm = Math.round(body.tempoBpm);
+  }
+
   return {
     name,
     genre,
     youtubeUrl,
     spotifyUrl,
+    defaultKey: normalizeString(body.defaultKey),
+    tempoBpm,
     notes: normalizeString(body.notes),
     lyricsSections: body.lyricsSections ?? {},
     active: body.active !== false,
@@ -141,6 +159,10 @@ export async function POST(req: Request) {
     genre: validated.genre,
     youtubeUrl: validated.youtubeUrl ?? undefined,
     spotifyUrl: validated.spotifyUrl ?? undefined,
+    defaultKey: validated.defaultKey ?? undefined,
+    ...(validated.tempoBpm === undefined
+      ? {}
+      : { tempoBpm: validated.tempoBpm }),
     notes: validated.notes ?? undefined,
     lyricsSections: {
       intro: normalizeString(lyricsSections.intro) ?? undefined,
@@ -187,12 +209,23 @@ export async function PATCH(req: Request) {
   const patch = client.patch(songId);
   let touched = false;
 
-  if (body.name !== undefined || body.genre !== undefined || body.youtubeUrl !== undefined || body.spotifyUrl !== undefined || body.notes !== undefined || body.lyricsSections !== undefined) {
+  if (
+    body.name !== undefined ||
+    body.genre !== undefined ||
+    body.youtubeUrl !== undefined ||
+    body.spotifyUrl !== undefined ||
+    body.defaultKey !== undefined ||
+    body.tempoBpm !== undefined ||
+    body.notes !== undefined ||
+    body.lyricsSections !== undefined
+  ) {
     const validated = validateSongBody({
       name: body.name,
       genre: body.genre,
       youtubeUrl: body.youtubeUrl,
       spotifyUrl: body.spotifyUrl,
+      defaultKey: body.defaultKey,
+      tempoBpm: body.tempoBpm,
       notes: body.notes,
       lyricsSections: body.lyricsSections,
       active: body.active,
@@ -214,6 +247,8 @@ export async function PATCH(req: Request) {
       genre: validated.genre,
       youtubeUrl: validated.youtubeUrl ?? undefined,
       spotifyUrl: validated.spotifyUrl ?? undefined,
+      defaultKey: validated.defaultKey ?? undefined,
+      ...(validated.tempoBpm === undefined ? {} : { tempoBpm: validated.tempoBpm }),
       notes: validated.notes ?? undefined,
       lyricsSections: {
         intro: normalizeString(validated.lyricsSections.intro) ?? undefined,
