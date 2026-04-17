@@ -8,6 +8,11 @@ type AdminManagerProps = {
 
 const ADMIN_CARDS = [
   {
+    title: "Band Calendar",
+    description: "View the month schedule and manage services and rehearsals.",
+    href: "/admin/calendar",
+  },
+  {
     title: "Contributions",
     description: "Manage contributions, logs, expenses, and member statements.",
     href: "/contributions",

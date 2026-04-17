@@ -19,6 +19,7 @@ const PUBLIC_LINKS = [
 
 const AUTHORIZED_LINKS = [
   { href: "/admin", label: "Dashboard" },
+  { href: "/admin/calendar", label: "Calendar" },
   { href: "/contributions", label: "Contributions" },
   { href: "/songs", label: "Songs" },
   { href: "/setlists", label: "Setlists" },

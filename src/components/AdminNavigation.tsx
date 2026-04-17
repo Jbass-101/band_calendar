@@ -20,6 +20,11 @@ const ADMIN_DESTINATIONS = [
     href: "/admin/songs",
   },
   {
+    title: "Band Calendar",
+    description: "View and manage services and rehearsals.",
+    href: "/admin/calendar",
+  },
+  {
     title: "Contributions",
     description: "Track member contributions, expenses, and logs.",
     href: "/contributions",
