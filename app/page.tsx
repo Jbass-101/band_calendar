@@ -40,7 +40,7 @@ export default async function Home() {
             <p className="mt-1 text-center sm:text-left text-sm sm:text-base text-zinc-600 dark:text-zinc-300">
               Plan services and rehearsals, and browse the song library.
             </p>
-            <div className="mt-3 grid w-full grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-3 grid w-full grid-cols-1 gap-2 sm:grid-cols-2">
               <Link
                 href="/schedule"
                 className="rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white/80 dark:bg-zinc-900/60 p-3 text-left hover:bg-zinc-100 dark:hover:bg-zinc-800"
@@ -57,15 +57,6 @@ export default async function Home() {
                 <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Song Repository</p>
                 <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
                   Browse songs, lyrics, and reference links.
-                </p>
-              </Link>
-              <Link
-                href="/setlists"
-                className="rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white/80 dark:bg-zinc-900/60 p-3 text-left hover:bg-zinc-100 dark:hover:bg-zinc-800 sm:col-span-2 lg:col-span-1"
-              >
-                <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Setlists</p>
-                <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
-                  See ordered songs per service and export band or media sheets.
                 </p>
               </Link>
             </div>
