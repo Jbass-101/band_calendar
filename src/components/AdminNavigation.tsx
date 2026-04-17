@@ -22,7 +22,7 @@ const ADMIN_DESTINATIONS = [
   {
     title: "Band Calendar",
     description: "View and manage services and rehearsals.",
-    href: "/admin/calendar",
+    href: "/calendar",
   },
   {
     title: "Contributions",

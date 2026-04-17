@@ -2,8 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
-import { downloadDomAsPdf } from "@/src/lib/exportDomToPdf";
+import { toast } from "sonner";
+import SetlistBandExportCard from "@/src/components/setlistExport/SetlistBandExportCard";
+import { downloadBandScheduleDomPdf } from "@/src/lib/bandCalendar/downloadBandScheduleDomPdf";
+import { downloadBandSetlistPng } from "@/src/lib/setlistExport/downloadBandSetlistPng";
 import {
   Drum,
   Guitar,
@@ -16,8 +18,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { BRANDING } from "@/src/lib/branding";
-import type { Service, SetlistDetail, SetlistSongItem } from "@/src/lib/sanity/client";
-
+import type { Service, SetlistDetail } from "@/src/lib/sanity/client";
 const ROLE_ORDER = [
   "Lead Vocal",
   "Lead Keyboard",
@@ -61,7 +62,6 @@ const ROLE_MOBILE_ICON: Record<(typeof ROLE_ORDER)[number], LucideIcon> = {
   Drummer: Drum,
   MD: Mic,
 };
-
 function formatYMDLocal(d: Date) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -113,25 +113,6 @@ function formatExportGeneratedAt(d: Date): string {
   }).format(d);
 }
 
-function formatSetlistDisplayDate(date: string): string {
-  const parts = date.split("-");
-  if (parts.length !== 3) return date;
-  const [year, month, day] = parts;
-  if (!year || !month || !day) return date;
-  return `${day}-${month}-${year}`;
-}
-
-function formatSetlistKey(item: SetlistSongItem): string {
-  const v = item.keyOverride ?? item.defaultKey;
-  return v && v.trim() ? v.trim() : "—";
-}
-
-function formatSetlistTempo(item: SetlistSongItem): string {
-  if (item.tempoOverride != null) return String(item.tempoOverride);
-  if (item.tempoBpm != null) return String(item.tempoBpm);
-  return "—";
-}
-
 function getServiceCardClass(service: Service | undefined, isPast: boolean): string {
   if (isPast) return "border-zinc-200 dark:border-zinc-800 bg-zinc-100/50 dark:bg-black/30 opacity-70";
   if (!service || service.variant === "default") {
@@ -164,7 +145,9 @@ export default function BandCalendarMonth() {
   const [setlistPreviewLoading, setSetlistPreviewLoading] = useState(false);
   const [setlistPreviewError, setSetlistPreviewError] = useState<string | null>(null);
   const [setlistPreview, setSetlistPreview] = useState<SetlistDetail | null>(null);
+  const [setlistPreviewExporting, setSetlistPreviewExporting] = useState(false);
   const exportRef = useRef<HTMLDivElement | null>(null);
+  const setlistPreviewExportRef = useRef<HTMLDivElement | null>(null);
 
   const todayKey = useMemo(() => formatYMDLocal(new Date()), []);
   const todayMonthStart = useMemo(() => {
@@ -306,19 +289,25 @@ export default function BandCalendarMonth() {
       await new Promise((resolve) => setTimeout(resolve, 50));
 
       const node = exportRef.current;
-      if (!node) return;
+      if (!node) {
+        toast.error("Calendar not ready");
+        return;
+      }
 
       const y = cursorMonth.getFullYear();
       const m = String(cursorMonth.getMonth() + 1).padStart(2, "0");
       const filename = `last-harvest-band-calendar-${y}-${m}.pdf`;
 
-      await downloadDomAsPdf(node, {
+      await downloadBandScheduleDomPdf(node, {
         filename,
         scale: 2,
         backgroundColor: "#ffffff",
       });
+      toast.success("Band calendar downloaded");
     } catch (e) {
-      setExportError(e instanceof Error ? e.message : "Failed to export PDF");
+      const message = e instanceof Error ? e.message : "Failed to export PDF";
+      setExportError(message);
+      toast.error(message);
     } finally {
       setExportMode(false);
     }
@@ -338,6 +327,25 @@ export default function BandCalendarMonth() {
       setSetlistPreviewError(err instanceof Error ? err.message : "Failed to load setlist.");
     } finally {
       setSetlistPreviewLoading(false);
+    }
+  };
+
+  const handleDownloadBandSetlistPng = async () => {
+    const node = setlistPreviewExportRef.current;
+    if (!node || !setlistPreview) return;
+    try {
+      setSetlistPreviewExporting(true);
+      const safeDate = setlistPreview.serviceDate.replaceAll(/[^\d-]/g, "-");
+      await downloadBandSetlistPng(node, {
+        filename: `setlist-band-${safeDate}-${setlistPreview._id.slice(-6)}.png`,
+        scale: 2,
+        backgroundColor: "#ffffff",
+      });
+      toast.success("Band sheet downloaded");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to export PNG");
+    } finally {
+      setSetlistPreviewExporting(false);
     }
   };
 
@@ -909,13 +917,23 @@ export default function BandCalendarMonth() {
                   <p className="text-xs text-zinc-500 dark:text-zinc-400">Band Calendar</p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setSetlistPreviewOpen(false)}
-                className="rounded-md border border-zinc-300 dark:border-zinc-700 px-2.5 py-1 text-xs"
-              >
-                Close
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => void handleDownloadBandSetlistPng()}
+                  disabled={!setlistPreview || setlistPreviewLoading || setlistPreviewExporting}
+                  className="rounded-md border border-emerald-600 bg-emerald-600 text-white px-2.5 py-1 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {setlistPreviewExporting ? "Downloading..." : "Download PNG"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSetlistPreviewOpen(false)}
+                  className="rounded-md border border-zinc-300 dark:border-zinc-700 px-2.5 py-1 text-xs"
+                >
+                  Close
+                </button>
+              </div>
             </div>
 
             {setlistPreviewLoading ? (
@@ -928,50 +946,8 @@ export default function BandCalendarMonth() {
                 {setlistPreviewError}
               </div>
             ) : setlistPreview ? (
-              <div className="pt-4 text-zinc-900 dark:text-zinc-100">
-                <h3 className="text-xl font-semibold tracking-tight">
-                  {formatSetlistDisplayDate(setlistPreview.serviceDate)} - {setlistPreview.serviceTitle}
-                </h3>
-                {setlistPreview.leadVocalNames.length > 0 ? (
-                  <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
-                    Lead vocal: {setlistPreview.leadVocalNames.join(", ")}
-                  </p>
-                ) : null}
-                <div className="mt-4 overflow-x-auto rounded-md border border-zinc-200 dark:border-zinc-800">
-                  <table className="w-full text-sm border-collapse">
-                    <thead>
-                      <tr className="border-b border-zinc-200 dark:border-zinc-800 text-left text-zinc-600 dark:text-zinc-300">
-                        <th className="py-2 px-3">#</th>
-                        <th className="py-2 pr-3">Song</th>
-                        <th className="py-2 pr-3">Key</th>
-                        <th className="py-2 pr-3">Tempo</th>
-                        <th className="py-2 pr-3">Notes</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {setlistPreview.songs.map((item, idx) => (
-                        <tr key={item._key} className="border-b border-zinc-100 dark:border-zinc-800/80">
-                          <td className="py-2 px-3 font-medium">{item.songNumber ?? idx + 1}</td>
-                          <td className="py-2 pr-3">{item.songName ?? "—"}</td>
-                          <td className="py-2 pr-3">{formatSetlistKey(item)}</td>
-                          <td className="py-2 pr-3">{formatSetlistTempo(item)}</td>
-                          <td className="py-2 pr-3">{item.note ?? "—"}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                {setlistPreview.notes ? (
-                  <p className="mt-4 text-sm text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap border-t border-zinc-200 dark:border-zinc-800 pt-3">
-                    {setlistPreview.notes}
-                  </p>
-                ) : null}
-                <div className="mt-5 border-t border-zinc-200 dark:border-zinc-800 pt-2 text-center text-[11px] text-zinc-500 dark:text-zinc-400">
-                  Powered by{" "}
-                  <a href="https://extrabrains.co.za/" className="font-semibold text-emerald-600 dark:text-emerald-400 underline">
-                    Extra Brains
-                  </a>
-                </div>
+              <div className="pt-4">
+                <SetlistBandExportCard ref={setlistPreviewExportRef} detail={setlistPreview} />
               </div>
             ) : null}
           </div>

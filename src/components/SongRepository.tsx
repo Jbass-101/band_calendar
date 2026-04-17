@@ -9,6 +9,11 @@ type SongRepositoryProps = {
 };
 
 const PAGE_SIZE = 20;
+const SORT_HEADER_BUTTON_CLASS =
+  "inline-flex items-center gap-1 font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100 transition-colors";
+const PAGINATION_META_CLASS = "text-zinc-500 dark:text-zinc-400";
+const PAGINATION_BUTTON_CLASS =
+  "rounded-md border border-zinc-300 dark:border-zinc-700 px-2.5 py-1 text-zinc-700 dark:text-zinc-200 disabled:opacity-50";
 
 const LYRICS_SECTION_ORDER: Array<{ key: keyof Song["lyricsSections"]; label: string }> = [
   { key: "intro", label: "Intro" },
@@ -38,6 +43,8 @@ export default function SongRepository({ songs, embedded = false }: SongReposito
   const [query, setQuery] = useState("");
   const [lyricsSong, setLyricsSong] = useState<Song | null>(null);
   const [page, setPage] = useState(1);
+  const [sortKey, setSortKey] = useState<"number" | "name" | "genre" | "status">("number");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [searchFields, setSearchFields] = useState<{
     name: boolean;
     genre: boolean;
@@ -65,12 +72,37 @@ export default function SongRepository({ songs, embedded = false }: SongReposito
     });
   }, [songs, query, searchFields]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredSongs.length / PAGE_SIZE));
+  const sortedSongs = useMemo(() => {
+    const factor = sortDirection === "asc" ? 1 : -1;
+    return [...filteredSongs].sort((a, b) => {
+      if (sortKey === "name") return factor * a.name.localeCompare(b.name);
+      if (sortKey === "genre") return factor * a.genre.localeCompare(b.genre);
+      if (sortKey === "status") return factor * Number(a.active) - factor * Number(b.active);
+      return factor * (a.number - b.number);
+    });
+  }, [filteredSongs, sortDirection, sortKey]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedSongs.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
   const pagedSongs = useMemo(() => {
     const start = (safePage - 1) * PAGE_SIZE;
-    return filteredSongs.slice(start, start + PAGE_SIZE);
-  }, [filteredSongs, safePage]);
+    return sortedSongs.slice(start, start + PAGE_SIZE);
+  }, [safePage, sortedSongs]);
+
+  function toggleSort(nextKey: "number" | "name" | "genre" | "status") {
+    setPage(1);
+    if (sortKey === nextKey) {
+      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setSortKey(nextKey);
+    setSortDirection("asc");
+  }
+
+  function sortIcon(key: "number" | "name" | "genre" | "status") {
+    if (sortKey !== key) return "△";
+    return sortDirection === "asc" ? "▲" : "▼";
+  }
 
   return (
     <section className="space-y-4">
@@ -159,7 +191,7 @@ export default function SongRepository({ songs, embedded = false }: SongReposito
       </div>
 
       <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white/90 dark:bg-zinc-950/70 p-4 sm:p-5">
-        {filteredSongs.length === 0 ? (
+        {sortedSongs.length === 0 ? (
           <p className="text-sm text-zinc-500 dark:text-zinc-400">No songs match your search.</p>
         ) : (
           <>
@@ -234,12 +266,12 @@ export default function SongRepository({ songs, embedded = false }: SongReposito
               <table className="min-w-full text-sm">
                 <thead>
                   <tr className="text-left text-zinc-600 dark:text-zinc-300 border-b border-zinc-200 dark:border-zinc-800">
-                    <th className="py-2 px-3">#</th>
-                    <th className="py-2 pr-3">Name</th>
-                    <th className="py-2 pr-3">Genre</th>
+                    <th className="py-2 px-3"><button type="button" onClick={() => toggleSort("number")} className={SORT_HEADER_BUTTON_CLASS}># {sortIcon("number")}</button></th>
+                    <th className="py-2 pr-3"><button type="button" onClick={() => toggleSort("name")} className={SORT_HEADER_BUTTON_CLASS}>Name {sortIcon("name")}</button></th>
+                    <th className="py-2 pr-3"><button type="button" onClick={() => toggleSort("genre")} className={SORT_HEADER_BUTTON_CLASS}>Genre {sortIcon("genre")}</button></th>
                     <th className="py-2 pr-3">Themes / Tags</th>
                     <th className="py-2 pr-3">Links</th>
-                    <th className="py-2 pr-3">Status</th>
+                    <th className="py-2 pr-3"><button type="button" onClick={() => toggleSort("status")} className={SORT_HEADER_BUTTON_CLASS}>Status {sortIcon("status")}</button></th>
                     <th className="py-2 pr-3">Lyrics</th>
                   </tr>
                 </thead>
@@ -319,17 +351,17 @@ export default function SongRepository({ songs, embedded = false }: SongReposito
                 </tbody>
               </table>
             </div>
-            {filteredSongs.length > PAGE_SIZE ? (
+            {sortedSongs.length > PAGE_SIZE ? (
               <div className="mt-3 flex items-center justify-between gap-2 text-xs sm:text-sm">
-                <div className="text-zinc-500 dark:text-zinc-400">
-                  Page {safePage} of {totalPages}
+                <div className={PAGINATION_META_CLASS}>
+                  Showing {(safePage - 1) * PAGE_SIZE + 1}-{Math.min(safePage * PAGE_SIZE, sortedSongs.length)} of {sortedSongs.length}
                 </div>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                     disabled={safePage <= 1}
-                    className="rounded-md border border-zinc-300 dark:border-zinc-700 px-2.5 py-1 text-zinc-700 dark:text-zinc-200 disabled:opacity-50"
+                    className={PAGINATION_BUTTON_CLASS}
                   >
                     Prev
                   </button>
@@ -337,7 +369,7 @@ export default function SongRepository({ songs, embedded = false }: SongReposito
                     type="button"
                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                     disabled={safePage >= totalPages}
-                    className="rounded-md border border-zinc-300 dark:border-zinc-700 px-2.5 py-1 text-zinc-700 dark:text-zinc-200 disabled:opacity-50"
+                    className={PAGINATION_BUTTON_CLASS}
                   >
                     Next
                   </button>

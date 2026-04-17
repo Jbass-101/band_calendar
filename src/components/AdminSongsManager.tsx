@@ -97,6 +97,9 @@ const LYRICS_FIELDS: Array<{ key: keyof LyricsSectionsDraft; label: string }> = 
 ];
 
 const PAGE_SIZE = 20;
+const PAGINATION_META_CLASS = "text-zinc-500 dark:text-zinc-400";
+const PAGINATION_BUTTON_CLASS =
+  "rounded-md border border-zinc-300 dark:border-zinc-700 px-2.5 py-1 text-zinc-700 dark:text-zinc-200 disabled:opacity-50";
 
 function toDraft(song: Song): SongDraft {
   return {
@@ -361,15 +364,15 @@ export default function AdminSongsManager({
         </div>
         {visibleSongs.length > PAGE_SIZE ? (
           <div className="mt-3 flex items-center justify-between gap-2 text-xs sm:text-sm">
-            <div className="text-zinc-500 dark:text-zinc-400">
-              Page {safePage} of {totalPages}
+            <div className={PAGINATION_META_CLASS}>
+              Showing {(safePage - 1) * PAGE_SIZE + 1}-{Math.min(safePage * PAGE_SIZE, visibleSongs.length)} of {visibleSongs.length}
             </div>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={safePage <= 1}
-                className="rounded-md border border-zinc-300 dark:border-zinc-700 px-2.5 py-1 text-zinc-700 dark:text-zinc-200 disabled:opacity-50"
+                className={PAGINATION_BUTTON_CLASS}
               >
                 Prev
               </button>
@@ -377,7 +380,7 @@ export default function AdminSongsManager({
                 type="button"
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={safePage >= totalPages}
-                className="rounded-md border border-zinc-300 dark:border-zinc-700 px-2.5 py-1 text-zinc-700 dark:text-zinc-200 disabled:opacity-50"
+                className={PAGINATION_BUTTON_CLASS}
               >
                 Next
               </button>

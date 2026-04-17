@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { Setlist, SetlistSongItem, Song } from "@/src/lib/sanity/client";
+import { formatIsoDateToDDMMYYYY } from "@/src/lib/formatDate";
 
 type SetlistRepositoryProps = {
   setlists: Setlist[];
@@ -47,16 +48,20 @@ function formatTempo(item: SetlistSongItem): string {
   return "—";
 }
 
-function formatDisplayDate(date: string): string {
-  const parts = date.split("-");
-  if (parts.length !== 3) return date;
-  const [year, month, day] = parts;
-  if (!year || !month || !day) return date;
-  return `${day}-${month}-${year}`;
-}
+const PAGE_SIZE = 20;
+type SortKey = "date" | "title" | "status" | "songs";
+const SORT_CONTROL_BUTTON_CLASS =
+  "rounded border border-zinc-300 dark:border-zinc-700 px-2 py-1 font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100 transition-colors";
+const PAGINATION_META_CLASS = "text-zinc-500 dark:text-zinc-400";
+const PAGINATION_BUTTON_CLASS =
+  "rounded-md border border-zinc-300 dark:border-zinc-700 px-2.5 py-1 text-zinc-700 dark:text-zinc-200 disabled:opacity-50";
 
 export default function SetlistRepository({ setlists, embedded = false }: SetlistRepositoryProps) {
   const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [sortKey, setSortKey] = useState<SortKey>("date");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const [expandedSetlists, setExpandedSetlists] = useState<Set<string>>(new Set());
 
   const filteredSetlists = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -95,6 +100,47 @@ export default function SetlistRepository({ setlists, embedded = false }: Setlis
     });
   }, [setlists, query]);
 
+  const sortedSetlists = useMemo(() => {
+    const factor = sortDirection === "asc" ? 1 : -1;
+    return [...filteredSetlists].sort((a, b) => {
+      if (sortKey === "title") return factor * a.serviceTitle.localeCompare(b.serviceTitle);
+      if (sortKey === "status") return factor * a.status.localeCompare(b.status);
+      if (sortKey === "songs") return factor * (a.songs.length - b.songs.length);
+      return factor * a.serviceDate.localeCompare(b.serviceDate);
+    });
+  }, [filteredSetlists, sortDirection, sortKey]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedSetlists.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pagedSetlists = useMemo(() => {
+    const start = (safePage - 1) * PAGE_SIZE;
+    return sortedSetlists.slice(start, start + PAGE_SIZE);
+  }, [safePage, sortedSetlists]);
+
+  function toggleSort(nextKey: SortKey) {
+    setPage(1);
+    if (sortKey === nextKey) {
+      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setSortKey(nextKey);
+    setSortDirection(nextKey === "date" ? "desc" : "asc");
+  }
+
+  function sortIcon(key: SortKey) {
+    if (sortKey !== key) return "△";
+    return sortDirection === "asc" ? "▲" : "▼";
+  }
+
+  function toggleSetlistExpanded(setlistId: string) {
+    setExpandedSetlists((prev) => {
+      const next = new Set(prev);
+      if (next.has(setlistId)) next.delete(setlistId);
+      else next.add(setlistId);
+      return next;
+    });
+  }
+
   return (
     <section className="space-y-4">
       <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white/90 dark:bg-zinc-950/70 p-4 sm:p-5">
@@ -118,7 +164,10 @@ export default function SetlistRepository({ setlists, embedded = false }: Setlis
           <input
             type="text"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setPage(1);
+            }}
             placeholder="Search by title, date, service, status, lead vocal, songs..."
             className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm"
           />
@@ -126,11 +175,25 @@ export default function SetlistRepository({ setlists, embedded = false }: Setlis
       </div>
 
       <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white/90 dark:bg-zinc-950/70 p-4 sm:p-5">
-        {filteredSetlists.length === 0 ? (
+        {sortedSetlists.length === 0 ? (
           <p className="text-sm text-zinc-500 dark:text-zinc-400">No setlists found.</p>
         ) : (
           <div className="space-y-3">
-            {filteredSetlists.map((setlist) => (
+            <div className="flex flex-wrap gap-2 text-xs text-zinc-600 dark:text-zinc-300">
+              <button type="button" onClick={() => toggleSort("date")} className={SORT_CONTROL_BUTTON_CLASS}>
+                Date {sortIcon("date")}
+              </button>
+              <button type="button" onClick={() => toggleSort("title")} className={SORT_CONTROL_BUTTON_CLASS}>
+                Service {sortIcon("title")}
+              </button>
+              <button type="button" onClick={() => toggleSort("status")} className={SORT_CONTROL_BUTTON_CLASS}>
+                Status {sortIcon("status")}
+              </button>
+              <button type="button" onClick={() => toggleSort("songs")} className={SORT_CONTROL_BUTTON_CLASS}>
+                Songs {sortIcon("songs")}
+              </button>
+            </div>
+            {pagedSetlists.map((setlist) => (
               <article
                 id={setlist._id}
                 key={setlist._id}
@@ -139,7 +202,7 @@ export default function SetlistRepository({ setlists, embedded = false }: Setlis
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <h2 className="text-sm sm:text-base font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
-                      {formatDisplayDate(setlist.serviceDate)} - {setlist.serviceTitle}
+                      {formatIsoDateToDDMMYYYY(setlist.serviceDate)} - {setlist.serviceTitle}
                     </h2>
                     {setlist.leadVocalNames.length > 0 ? (
                       <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
@@ -175,46 +238,61 @@ export default function SetlistRepository({ setlists, embedded = false }: Setlis
                 </div>
 
                 {setlist.songs.length > 0 ? (
-                  <div className="mt-3 overflow-x-auto rounded-md border border-zinc-200 dark:border-zinc-800">
-                    <table className="min-w-full text-xs sm:text-sm">
-                      <thead>
-                        <tr className="text-left text-zinc-600 dark:text-zinc-300 border-b border-zinc-200 dark:border-zinc-800">
-                          <th className="py-2 px-3">#</th>
-                          <th className="py-2 pr-3">Song</th>
-                          <th className="py-2 pr-3">Genre</th>
-                          <th className="py-2 pr-3">Key</th>
-                          <th className="py-2 pr-3">Tempo</th>
-                          <th className="py-2 pr-3">Note</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {setlist.songs.map((item, idx) => (
-                          <tr
-                            key={item._key}
-                            className={idx % 2 === 1 ? "bg-zinc-50/40 dark:bg-zinc-900/25" : ""}
-                          >
-                            <td className="py-2 px-3 font-medium text-zinc-800 dark:text-zinc-100">
-                              {item.songNumber ?? "—"}
-                            </td>
-                            <td className="py-2 pr-3 text-zinc-800 dark:text-zinc-100">
-                              {item.songName ?? "Missing song reference"}
-                            </td>
-                            <td className="py-2 pr-3 text-zinc-700 dark:text-zinc-300">
-                              {songGenreLabel(item.songGenre)}
-                            </td>
-                            <td className="py-2 pr-3 text-zinc-700 dark:text-zinc-300">
-                              {formatKey(item)}
-                            </td>
-                            <td className="py-2 pr-3 text-zinc-700 dark:text-zinc-300">
-                              {formatTempo(item)}
-                            </td>
-                            <td className="py-2 pr-3 text-zinc-700 dark:text-zinc-300">
-                              {item.note ?? "—"}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                  <div className="mt-3">
+                    <button
+                      type="button"
+                      onClick={() => toggleSetlistExpanded(setlist._id)}
+                      className="text-xs font-medium text-emerald-700 dark:text-emerald-400 hover:underline"
+                    >
+                      {expandedSetlists.has(setlist._id) ? "Hide songs" : `Show songs (${setlist.songs.length})`}
+                    </button>
+                    {expandedSetlists.has(setlist._id) ? (
+                      <div className="mt-2 overflow-x-auto rounded-md border border-zinc-200 dark:border-zinc-800">
+                        <table className="min-w-full text-xs sm:text-sm">
+                          <thead>
+                            <tr className="text-left text-zinc-600 dark:text-zinc-300 border-b border-zinc-200 dark:border-zinc-800">
+                              <th className="py-2 px-3">#</th>
+                              <th className="py-2 pr-3">Song</th>
+                              <th className="py-2 pr-3">Section</th>
+                              <th className="py-2 pr-3">Genre</th>
+                              <th className="py-2 pr-3">Key</th>
+                              <th className="py-2 pr-3">Tempo</th>
+                              <th className="py-2 pr-3">Note</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {setlist.songs.map((item, idx) => (
+                              <tr
+                                key={item._key}
+                                className={idx % 2 === 1 ? "bg-zinc-50/40 dark:bg-zinc-900/25" : ""}
+                              >
+                                <td className="py-2 px-3 font-medium text-zinc-800 dark:text-zinc-100">
+                                  {item.songNumber ?? "—"}
+                                </td>
+                                <td className="py-2 pr-3 text-zinc-800 dark:text-zinc-100">
+                                  {item.songName ?? "Missing song reference"}
+                                </td>
+                                <td className="py-2 pr-3 text-zinc-700 dark:text-zinc-300">
+                                  {item.section}
+                                </td>
+                                <td className="py-2 pr-3 text-zinc-700 dark:text-zinc-300">
+                                  {songGenreLabel(item.songGenre)}
+                                </td>
+                                <td className="py-2 pr-3 text-zinc-700 dark:text-zinc-300">
+                                  {formatKey(item)}
+                                </td>
+                                <td className="py-2 pr-3 text-zinc-700 dark:text-zinc-300">
+                                  {formatTempo(item)}
+                                </td>
+                                <td className="py-2 pr-3 text-zinc-700 dark:text-zinc-300">
+                                  {item.note ?? "—"}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : null}
                   </div>
                 ) : (
                   <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">No songs added.</p>
@@ -227,6 +305,31 @@ export default function SetlistRepository({ setlists, embedded = false }: Setlis
                 ) : null}
               </article>
             ))}
+            {sortedSetlists.length > PAGE_SIZE ? (
+              <div className="mt-3 flex items-center justify-between gap-2 text-xs sm:text-sm">
+                <div className={PAGINATION_META_CLASS}>
+                  Showing {(safePage - 1) * PAGE_SIZE + 1}-{Math.min(safePage * PAGE_SIZE, sortedSetlists.length)} of {sortedSetlists.length}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={safePage <= 1}
+                    className={PAGINATION_BUTTON_CLASS}
+                  >
+                    Prev
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={safePage >= totalPages}
+                    className={PAGINATION_BUTTON_CLASS}
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
         )}
       </div>

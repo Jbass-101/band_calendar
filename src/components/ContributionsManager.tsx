@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { downloadDomAsPdf } from "@/src/lib/exportDomToPdf";
+import { downloadContributionsStatementDomPdf } from "@/src/lib/contributions/downloadContributionsStatementDomPdf";
 import { toast } from "sonner";
 import { CONTRIBUTION_LOG_EVENT_TYPES } from "@/src/lib/contributionLogConstants";
 import { formatIsoDateTimeToDisplay, formatIsoDateToDDMMYYYY, formatYearMonthToDDMMYYYY } from "@/src/lib/formatDate";
@@ -114,6 +114,13 @@ type ContributionLogRow = {
   userAgent?: string;
 };
 
+const PAGE_SIZE = 20;
+const SORT_HEADER_BUTTON_CLASS =
+  "inline-flex items-center gap-1 font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100 transition-colors";
+const PAGINATION_META_CLASS = "text-zinc-500 dark:text-zinc-400";
+const PAGINATION_BUTTON_CLASS =
+  "rounded-md border border-zinc-300 dark:border-zinc-700 px-2.5 py-1 text-zinc-700 dark:text-zinc-200 disabled:opacity-50";
+
 function currentMonth() {
   const now = new Date();
   const yyyy = now.getFullYear();
@@ -126,14 +133,7 @@ function money(value: number): string {
 }
 
 function formatGeneratedAt(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  const dd = `${d.getDate()}`.padStart(2, "0");
-  const mm = `${d.getMonth() + 1}`.padStart(2, "0");
-  const yyyy = d.getFullYear();
-  const hh = `${d.getHours()}`.padStart(2, "0");
-  const min = `${d.getMinutes()}`.padStart(2, "0");
-  return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
+  return formatIsoDateTimeToDisplay(iso);
 }
 
 function shortDeviceId(id: string): string {
@@ -346,6 +346,9 @@ export default function ContributionsManager({ authorized }: { authorized: boole
   const [ytdNetAfterExpenses, setYtdNetAfterExpenses] = useState(0);
   const [dashboardRows, setDashboardRows] = useState<DashboardRow[]>([]);
   const [statusFilter, setStatusFilter] = useState<"all" | DashboardStatus>("all");
+  const [dashboardPage, setDashboardPage] = useState(1);
+  const [dashboardSortKey, setDashboardSortKey] = useState<"member" | "type" | "expected" | "paid" | "balance" | "status">("member");
+  const [dashboardSortDirection, setDashboardSortDirection] = useState<"asc" | "desc">("asc");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -368,6 +371,12 @@ export default function ContributionsManager({ authorized }: { authorized: boole
   const [editingContributionId, setEditingContributionId] = useState<string | null>(null);
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
   const [contributionDeletingId, setContributionDeletingId] = useState<string | null>(null);
+  const [contributionsPage, setContributionsPage] = useState(1);
+  const [contributionsSortKey, setContributionsSortKey] = useState<"member" | "amount" | "paidDate">("paidDate");
+  const [contributionsSortDirection, setContributionsSortDirection] = useState<"asc" | "desc">("desc");
+  const [expensesPage, setExpensesPage] = useState(1);
+  const [expensesSortKey, setExpensesSortKey] = useState<"date" | "description" | "amount">("date");
+  const [expensesSortDirection, setExpensesSortDirection] = useState<"asc" | "desc">("desc");
 
   const [settingsNon, setSettingsNon] = useState("100");
   const [settingsCom, setSettingsCom] = useState("250");
@@ -382,6 +391,9 @@ export default function ContributionsManager({ authorized }: { authorized: boole
   const [logsError, setLogsError] = useState<string | null>(null);
   const [logTypeFilter, setLogTypeFilter] = useState<string>("all");
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
+  const [logsPage, setLogsPage] = useState(1);
+  const [logsSortKey, setLogsSortKey] = useState<"time" | "type" | "summary" | "device">("time");
+  const [logsSortDirection, setLogsSortDirection] = useState<"asc" | "desc">("desc");
 
   const [whatsappDraftByMember, setWhatsappDraftByMember] = useState<Record<string, string>>({});
   const [whatsappSavingId, setWhatsappSavingId] = useState<string | null>(null);
@@ -458,7 +470,7 @@ export default function ContributionsManager({ authorized }: { authorized: boole
       const node = statementRef.current;
       if (!node) throw new Error("Statement not ready");
       const suffix = scope === "month" ? "month" : "ytd";
-      await downloadDomAsPdf(node, {
+      await downloadContributionsStatementDomPdf(node, {
         filename: `contributions-statement-${month}-${suffix}.pdf`,
         scale: 2,
         backgroundColor: "#ffffff",
@@ -562,6 +574,20 @@ export default function ContributionsManager({ authorized }: { authorized: boole
     // eslint-disable-next-line react-hooks/exhaustive-deps -- refetch when filter or tab changes
   }, [isAuthed, activeTab, logTypeFilter]);
 
+  useEffect(() => {
+    setDashboardPage(1);
+    setContributionsPage(1);
+    setExpensesPage(1);
+  }, [month]);
+
+  useEffect(() => {
+    setDashboardPage(1);
+  }, [statusFilter]);
+
+  useEffect(() => {
+    setLogsPage(1);
+  }, [logTypeFilter]);
+
   const selectedMember = useMemo(
     () => members.find((m) => m._id === memberId) ?? null,
     [memberId, members]
@@ -581,6 +607,75 @@ export default function ContributionsManager({ authorized }: { authorized: boole
     if (statusFilter === "all") return dashboardRows;
     return dashboardRows.filter((row) => row.status === statusFilter);
   }, [dashboardRows, statusFilter]);
+
+  const sortedDashboardRows = useMemo(() => {
+    const factor = dashboardSortDirection === "asc" ? 1 : -1;
+    return [...filteredRows].sort((a, b) => {
+      if (dashboardSortKey === "type") return factor * Number(a.isCommittee) - factor * Number(b.isCommittee);
+      if (dashboardSortKey === "expected") return factor * (a.expectedAmount - b.expectedAmount);
+      if (dashboardSortKey === "paid") return factor * (a.paidAmount - b.paidAmount);
+      if (dashboardSortKey === "balance") return factor * (a.balance - b.balance);
+      if (dashboardSortKey === "status") return factor * a.status.localeCompare(b.status);
+      return factor * a.memberName.localeCompare(b.memberName);
+    });
+  }, [dashboardSortDirection, dashboardSortKey, filteredRows]);
+  const dashboardTotalPages = Math.max(1, Math.ceil(sortedDashboardRows.length / PAGE_SIZE));
+  const safeDashboardPage = Math.min(dashboardPage, dashboardTotalPages);
+  const pagedDashboardRows = useMemo(() => {
+    const start = (safeDashboardPage - 1) * PAGE_SIZE;
+    return sortedDashboardRows.slice(start, start + PAGE_SIZE);
+  }, [safeDashboardPage, sortedDashboardRows]);
+
+  const sortedContributions = useMemo(() => {
+    const factor = contributionsSortDirection === "asc" ? 1 : -1;
+    return [...contributions].sort((a, b) => {
+      if (contributionsSortKey === "member") return factor * (a.memberName ?? "").localeCompare(b.memberName ?? "");
+      if (contributionsSortKey === "amount") return factor * (a.amount - b.amount);
+      return factor * (a.paidDate ?? "").localeCompare(b.paidDate ?? "");
+    });
+  }, [contributions, contributionsSortDirection, contributionsSortKey]);
+  const contributionsTotalPages = Math.max(1, Math.ceil(sortedContributions.length / PAGE_SIZE));
+  const safeContributionsPage = Math.min(contributionsPage, contributionsTotalPages);
+  const pagedContributions = useMemo(() => {
+    const start = (safeContributionsPage - 1) * PAGE_SIZE;
+    return sortedContributions.slice(start, start + PAGE_SIZE);
+  }, [safeContributionsPage, sortedContributions]);
+
+  const sortedExpenses = useMemo(() => {
+    const factor = expensesSortDirection === "asc" ? 1 : -1;
+    return [...expenses].sort((a, b) => {
+      if (expensesSortKey === "description") return factor * a.description.localeCompare(b.description);
+      if (expensesSortKey === "amount") return factor * (a.amount - b.amount);
+      return factor * (a.date ?? "").localeCompare(b.date ?? "");
+    });
+  }, [expenses, expensesSortDirection, expensesSortKey]);
+  const expensesTotalPages = Math.max(1, Math.ceil(sortedExpenses.length / PAGE_SIZE));
+  const safeExpensesPage = Math.min(expensesPage, expensesTotalPages);
+  const pagedExpenses = useMemo(() => {
+    const start = (safeExpensesPage - 1) * PAGE_SIZE;
+    return sortedExpenses.slice(start, start + PAGE_SIZE);
+  }, [safeExpensesPage, sortedExpenses]);
+
+  const sortedLogs = useMemo(() => {
+    const factor = logsSortDirection === "asc" ? 1 : -1;
+    return [...logs].sort((a, b) => {
+      if (logsSortKey === "type") return factor * a.eventType.localeCompare(b.eventType);
+      if (logsSortKey === "summary") return factor * a.summary.localeCompare(b.summary);
+      if (logsSortKey === "device") return factor * a.deviceId.localeCompare(b.deviceId);
+      return factor * a.timestamp.localeCompare(b.timestamp);
+    });
+  }, [logs, logsSortDirection, logsSortKey]);
+  const logsTotalPages = Math.max(1, Math.ceil(sortedLogs.length / PAGE_SIZE));
+  const safeLogsPage = Math.min(logsPage, logsTotalPages);
+  const pagedLogs = useMemo(() => {
+    const start = (safeLogsPage - 1) * PAGE_SIZE;
+    return sortedLogs.slice(start, start + PAGE_SIZE);
+  }, [safeLogsPage, sortedLogs]);
+
+  function sortIcon(active: boolean, direction: "asc" | "desc") {
+    if (!active) return "△";
+    return direction === "asc" ? "▲" : "▼";
+  }
 
   const summary = useMemo(() => {
     let totalExpected = 0;
@@ -1082,12 +1177,12 @@ export default function ContributionsManager({ authorized }: { authorized: boole
             <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Member dashboard</h2>
             {loading ? (
               <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400">Loading...</p>
-            ) : filteredRows.length === 0 ? (
+            ) : sortedDashboardRows.length === 0 ? (
               <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400">No members found.</p>
             ) : (
               <>
                 <div className="mt-3 space-y-2 sm:hidden">
-                  {filteredRows.map((row) => {
+                  {pagedDashboardRows.map((row) => {
                     const waHref = whatsappReminderHref(row);
                     return (
                       <div
@@ -1175,19 +1270,55 @@ export default function ContributionsManager({ authorized }: { authorized: boole
                   <table className="min-w-full text-sm">
                     <thead>
                       <tr className="text-left text-zinc-600 dark:text-zinc-300 border-b border-zinc-200 dark:border-zinc-800">
-                        <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 px-3">Member</th>
-                        <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3">Type</th>
-                        <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3 text-right">Expected</th>
-                        <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3 text-right">Paid</th>
-                        <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3 text-right">Balance</th>
+                        <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 px-3">
+                          <button type="button" className={SORT_HEADER_BUTTON_CLASS} onClick={() => {
+                            if (dashboardSortKey === "member") setDashboardSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+                            else { setDashboardSortKey("member"); setDashboardSortDirection("asc"); }
+                            setDashboardPage(1);
+                          }}>Member {sortIcon(dashboardSortKey === "member", dashboardSortDirection)}</button>
+                        </th>
+                        <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3">
+                          <button type="button" className={SORT_HEADER_BUTTON_CLASS} onClick={() => {
+                            if (dashboardSortKey === "type") setDashboardSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+                            else { setDashboardSortKey("type"); setDashboardSortDirection("asc"); }
+                            setDashboardPage(1);
+                          }}>Type {sortIcon(dashboardSortKey === "type", dashboardSortDirection)}</button>
+                        </th>
+                        <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3 text-right">
+                          <button type="button" className={SORT_HEADER_BUTTON_CLASS} onClick={() => {
+                            if (dashboardSortKey === "expected") setDashboardSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+                            else { setDashboardSortKey("expected"); setDashboardSortDirection("desc"); }
+                            setDashboardPage(1);
+                          }}>Expected {sortIcon(dashboardSortKey === "expected", dashboardSortDirection)}</button>
+                        </th>
+                        <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3 text-right">
+                          <button type="button" className={SORT_HEADER_BUTTON_CLASS} onClick={() => {
+                            if (dashboardSortKey === "paid") setDashboardSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+                            else { setDashboardSortKey("paid"); setDashboardSortDirection("desc"); }
+                            setDashboardPage(1);
+                          }}>Paid {sortIcon(dashboardSortKey === "paid", dashboardSortDirection)}</button>
+                        </th>
+                        <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3 text-right">
+                          <button type="button" className={SORT_HEADER_BUTTON_CLASS} onClick={() => {
+                            if (dashboardSortKey === "balance") setDashboardSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+                            else { setDashboardSortKey("balance"); setDashboardSortDirection("asc"); }
+                            setDashboardPage(1);
+                          }}>Balance {sortIcon(dashboardSortKey === "balance", dashboardSortDirection)}</button>
+                        </th>
                         <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3 w-[1%] whitespace-nowrap">
                           WhatsApp
                         </th>
-                        <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3">Status</th>
+                        <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3">
+                          <button type="button" className={SORT_HEADER_BUTTON_CLASS} onClick={() => {
+                            if (dashboardSortKey === "status") setDashboardSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+                            else { setDashboardSortKey("status"); setDashboardSortDirection("asc"); }
+                            setDashboardPage(1);
+                          }}>Status {sortIcon(dashboardSortKey === "status", dashboardSortDirection)}</button>
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredRows.map((row, idx) => {
+                      {pagedDashboardRows.map((row, idx) => {
                         const waHref = whatsappReminderHref(row);
                         return (
                         <tr
@@ -1266,6 +1397,31 @@ export default function ContributionsManager({ authorized }: { authorized: boole
                     </tbody>
                   </table>
                 </div>
+                {sortedDashboardRows.length > PAGE_SIZE ? (
+                  <div className="mt-3 flex items-center justify-between gap-2 text-xs sm:text-sm">
+                    <div className={PAGINATION_META_CLASS}>
+                      Showing {(safeDashboardPage - 1) * PAGE_SIZE + 1}-{Math.min(safeDashboardPage * PAGE_SIZE, sortedDashboardRows.length)} of {sortedDashboardRows.length}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setDashboardPage((p) => Math.max(1, p - 1))}
+                        disabled={safeDashboardPage <= 1}
+                        className={PAGINATION_BUTTON_CLASS}
+                      >
+                        Prev
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDashboardPage((p) => Math.min(dashboardTotalPages, p + 1))}
+                        disabled={safeDashboardPage >= dashboardTotalPages}
+                        className={PAGINATION_BUTTON_CLASS}
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
               </>
             )}
           </div>
@@ -1328,7 +1484,7 @@ export default function ContributionsManager({ authorized }: { authorized: boole
                   required
                 />
                 <span className="mt-1 block text-xs font-normal text-zinc-500 dark:text-zinc-400">
-                  Calendar picker; tables and statements show dates as dd/mm/yyyy.
+                  Calendar picker; tables and statements show dates as DD-MMM-YYYY.
                 </span>
               </label>
 
@@ -1394,12 +1550,12 @@ export default function ContributionsManager({ authorized }: { authorized: boole
 
             {loading ? (
               <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400">Loading...</p>
-            ) : contributions.length === 0 ? (
+            ) : sortedContributions.length === 0 ? (
               <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400">No contributions found.</p>
             ) : (
               <>
                 <div className="mt-3 space-y-2 sm:hidden">
-                  {contributions.map((item) => (
+                  {pagedContributions.map((item) => (
                     <div
                       key={item._id}
                       className="rounded-lg border border-zinc-200 dark:border-zinc-800 p-3 bg-white/80 dark:bg-zinc-950/50"
@@ -1446,15 +1602,33 @@ export default function ContributionsManager({ authorized }: { authorized: boole
                   <table className="min-w-full text-sm">
                     <thead>
                       <tr className="text-left text-zinc-600 dark:text-zinc-300 border-b border-zinc-200 dark:border-zinc-800">
-                        <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 px-3">Member</th>
-                        <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3 text-right">Amount</th>
-                        <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3">Paid date</th>
+                        <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 px-3">
+                          <button type="button" className={SORT_HEADER_BUTTON_CLASS} onClick={() => {
+                            if (contributionsSortKey === "member") setContributionsSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+                            else { setContributionsSortKey("member"); setContributionsSortDirection("asc"); }
+                            setContributionsPage(1);
+                          }}>Member {sortIcon(contributionsSortKey === "member", contributionsSortDirection)}</button>
+                        </th>
+                        <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3 text-right">
+                          <button type="button" className={SORT_HEADER_BUTTON_CLASS} onClick={() => {
+                            if (contributionsSortKey === "amount") setContributionsSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+                            else { setContributionsSortKey("amount"); setContributionsSortDirection("desc"); }
+                            setContributionsPage(1);
+                          }}>Amount {sortIcon(contributionsSortKey === "amount", contributionsSortDirection)}</button>
+                        </th>
+                        <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3">
+                          <button type="button" className={SORT_HEADER_BUTTON_CLASS} onClick={() => {
+                            if (contributionsSortKey === "paidDate") setContributionsSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+                            else { setContributionsSortKey("paidDate"); setContributionsSortDirection("desc"); }
+                            setContributionsPage(1);
+                          }}>Paid date {sortIcon(contributionsSortKey === "paidDate", contributionsSortDirection)}</button>
+                        </th>
                         <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3">Notes</th>
                         <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3 w-36">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {contributions.map((item, idx) => (
+                      {pagedContributions.map((item, idx) => (
                         <tr
                           key={item._id}
                           className={[
@@ -1493,6 +1667,31 @@ export default function ContributionsManager({ authorized }: { authorized: boole
                     </tbody>
                   </table>
                 </div>
+                {sortedContributions.length > PAGE_SIZE ? (
+                  <div className="mt-3 flex items-center justify-between gap-2 text-xs sm:text-sm">
+                    <div className={PAGINATION_META_CLASS}>
+                      Showing {(safeContributionsPage - 1) * PAGE_SIZE + 1}-{Math.min(safeContributionsPage * PAGE_SIZE, sortedContributions.length)} of {sortedContributions.length}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setContributionsPage((p) => Math.max(1, p - 1))}
+                        disabled={safeContributionsPage <= 1}
+                        className={PAGINATION_BUTTON_CLASS}
+                      >
+                        Prev
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setContributionsPage((p) => Math.min(contributionsTotalPages, p + 1))}
+                        disabled={safeContributionsPage >= contributionsTotalPages}
+                        className={PAGINATION_BUTTON_CLASS}
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
               </>
             )}
           </div>
@@ -1526,7 +1725,7 @@ export default function ContributionsManager({ authorized }: { authorized: boole
                   required
                 />
                 <span className="mt-1 block text-xs font-normal text-zinc-500 dark:text-zinc-400">
-                  Calendar picker; tables and statements show dates as dd/mm/yyyy.
+                  Calendar picker; tables and statements show dates as DD-MMM-YYYY.
                 </span>
               </label>
               <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-200 sm:col-span-2">
@@ -1597,12 +1796,12 @@ export default function ContributionsManager({ authorized }: { authorized: boole
             </div>
             {loading ? (
               <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400">Loading...</p>
-            ) : expenses.length === 0 ? (
+            ) : sortedExpenses.length === 0 ? (
               <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400">No expenses recorded.</p>
             ) : (
               <>
                 <div className="mt-3 space-y-2 sm:hidden">
-                  {expenses.map((ex) => (
+                  {pagedExpenses.map((ex) => (
                     <div
                       key={ex._id}
                       className="rounded-lg border border-zinc-200 dark:border-zinc-800 p-3 bg-white/80 dark:bg-zinc-950/50"
@@ -1649,15 +1848,33 @@ export default function ContributionsManager({ authorized }: { authorized: boole
                   <table className="min-w-full text-sm">
                     <thead>
                       <tr className="text-left text-zinc-600 dark:text-zinc-300 border-b border-zinc-200 dark:border-zinc-800">
-                        <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 px-3">Date</th>
-                        <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3">Description</th>
-                        <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3 text-right">Amount</th>
+                        <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 px-3">
+                          <button type="button" className={SORT_HEADER_BUTTON_CLASS} onClick={() => {
+                            if (expensesSortKey === "date") setExpensesSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+                            else { setExpensesSortKey("date"); setExpensesSortDirection("desc"); }
+                            setExpensesPage(1);
+                          }}>Date {sortIcon(expensesSortKey === "date", expensesSortDirection)}</button>
+                        </th>
+                        <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3">
+                          <button type="button" className={SORT_HEADER_BUTTON_CLASS} onClick={() => {
+                            if (expensesSortKey === "description") setExpensesSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+                            else { setExpensesSortKey("description"); setExpensesSortDirection("asc"); }
+                            setExpensesPage(1);
+                          }}>Description {sortIcon(expensesSortKey === "description", expensesSortDirection)}</button>
+                        </th>
+                        <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3 text-right">
+                          <button type="button" className={SORT_HEADER_BUTTON_CLASS} onClick={() => {
+                            if (expensesSortKey === "amount") setExpensesSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+                            else { setExpensesSortKey("amount"); setExpensesSortDirection("desc"); }
+                            setExpensesPage(1);
+                          }}>Amount {sortIcon(expensesSortKey === "amount", expensesSortDirection)}</button>
+                        </th>
                         <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3">Notes</th>
                         <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3 w-36">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {expenses.map((ex, idx) => (
+                      {pagedExpenses.map((ex, idx) => (
                         <tr
                           key={ex._id}
                           className={[
@@ -1694,6 +1911,31 @@ export default function ContributionsManager({ authorized }: { authorized: boole
                     </tbody>
                   </table>
                 </div>
+                {sortedExpenses.length > PAGE_SIZE ? (
+                  <div className="mt-3 flex items-center justify-between gap-2 text-xs sm:text-sm">
+                    <div className={PAGINATION_META_CLASS}>
+                      Showing {(safeExpensesPage - 1) * PAGE_SIZE + 1}-{Math.min(safeExpensesPage * PAGE_SIZE, sortedExpenses.length)} of {sortedExpenses.length}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setExpensesPage((p) => Math.max(1, p - 1))}
+                        disabled={safeExpensesPage <= 1}
+                        className={PAGINATION_BUTTON_CLASS}
+                      >
+                        Prev
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setExpensesPage((p) => Math.min(expensesTotalPages, p + 1))}
+                        disabled={safeExpensesPage >= expensesTotalPages}
+                        className={PAGINATION_BUTTON_CLASS}
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
               </>
             )}
           </div>
@@ -1727,12 +1969,12 @@ export default function ContributionsManager({ authorized }: { authorized: boole
             <p className="text-sm text-zinc-500 dark:text-zinc-400">Loading…</p>
           ) : logsError ? (
             <p className="text-sm text-rose-600 dark:text-rose-400">{logsError}</p>
-          ) : logs.length === 0 ? (
+          ) : sortedLogs.length === 0 ? (
             <p className="text-sm text-zinc-500 dark:text-zinc-400">No log entries yet.</p>
           ) : (
             <>
               <div className="space-y-2 sm:hidden max-h-[32rem] overflow-y-auto pr-1">
-                {logs.map((row) => (
+                {pagedLogs.map((row) => (
                   <div
                     key={row._id}
                     className="rounded-lg border border-zinc-200 dark:border-zinc-800 p-3 bg-white/80 dark:bg-zinc-950/50"
@@ -1768,15 +2010,39 @@ export default function ContributionsManager({ authorized }: { authorized: boole
                 <table className="min-w-full text-sm">
                   <thead>
                     <tr className="text-left text-zinc-600 dark:text-zinc-300 border-b border-zinc-200 dark:border-zinc-800">
-                      <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 px-3 whitespace-nowrap">Time</th>
-                      <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3">Type</th>
-                      <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3">Summary</th>
-                      <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3 whitespace-nowrap">Device</th>
+                      <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 px-3 whitespace-nowrap">
+                        <button type="button" className={SORT_HEADER_BUTTON_CLASS} onClick={() => {
+                          if (logsSortKey === "time") setLogsSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+                          else { setLogsSortKey("time"); setLogsSortDirection("desc"); }
+                          setLogsPage(1);
+                        }}>Time {sortIcon(logsSortKey === "time", logsSortDirection)}</button>
+                      </th>
+                      <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3">
+                        <button type="button" className={SORT_HEADER_BUTTON_CLASS} onClick={() => {
+                          if (logsSortKey === "type") setLogsSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+                          else { setLogsSortKey("type"); setLogsSortDirection("asc"); }
+                          setLogsPage(1);
+                        }}>Type {sortIcon(logsSortKey === "type", logsSortDirection)}</button>
+                      </th>
+                      <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3">
+                        <button type="button" className={SORT_HEADER_BUTTON_CLASS} onClick={() => {
+                          if (logsSortKey === "summary") setLogsSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+                          else { setLogsSortKey("summary"); setLogsSortDirection("asc"); }
+                          setLogsPage(1);
+                        }}>Summary {sortIcon(logsSortKey === "summary", logsSortDirection)}</button>
+                      </th>
+                      <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3 whitespace-nowrap">
+                        <button type="button" className={SORT_HEADER_BUTTON_CLASS} onClick={() => {
+                          if (logsSortKey === "device") setLogsSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+                          else { setLogsSortKey("device"); setLogsSortDirection("asc"); }
+                          setLogsPage(1);
+                        }}>Device {sortIcon(logsSortKey === "device", logsSortDirection)}</button>
+                      </th>
                       <th className="sticky top-0 bg-white dark:bg-zinc-950 py-2 pr-3 w-24" />
                     </tr>
                   </thead>
                   <tbody>
-                    {logs.map((row, idx) => (
+                    {pagedLogs.map((row, idx) => (
                       <Fragment key={row._id}>
                         <tr
                           className={[
@@ -1822,6 +2088,31 @@ export default function ContributionsManager({ authorized }: { authorized: boole
                   </tbody>
                 </table>
               </div>
+              {sortedLogs.length > PAGE_SIZE ? (
+                <div className="mt-3 flex items-center justify-between gap-2 text-xs sm:text-sm">
+                  <div className={PAGINATION_META_CLASS}>
+                    Showing {(safeLogsPage - 1) * PAGE_SIZE + 1}-{Math.min(safeLogsPage * PAGE_SIZE, sortedLogs.length)} of {sortedLogs.length}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setLogsPage((p) => Math.max(1, p - 1))}
+                      disabled={safeLogsPage <= 1}
+                      className={PAGINATION_BUTTON_CLASS}
+                    >
+                      Prev
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLogsPage((p) => Math.min(logsTotalPages, p + 1))}
+                      disabled={safeLogsPage >= logsTotalPages}
+                      className={PAGINATION_BUTTON_CLASS}
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              ) : null}
             </>
           )}
         </div>

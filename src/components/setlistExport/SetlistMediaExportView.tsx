@@ -2,9 +2,11 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useRef } from "react";
-import { downloadDomAsPdf } from "@/src/lib/exportDomToPdf";
+import { ChevronUp } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { downloadMediaSetlistPdf } from "@/src/lib/exportMediaSetlistPdf";
 import { BRANDING } from "@/src/lib/branding";
+import { formatIsoDateToDDMMYYYY } from "@/src/lib/formatDate";
 import type { SetlistDetail, SetlistDetailSong } from "@/src/lib/sanity/client";
 
 const LYRIC_ORDER: Array<{ key: keyof SetlistDetailSong["lyricsSections"]; label: string }> = [
@@ -23,30 +25,35 @@ type SetlistMediaExportViewProps = {
   detail: SetlistDetail;
 };
 
+const SCROLL_TOP_THRESHOLD_PX = 320;
+
 export default function SetlistMediaExportView({ detail }: SetlistMediaExportViewProps) {
   const ref = useRef<HTMLDivElement>(null);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => {
+      setShowScrollTop(window.scrollY > SCROLL_TOP_THRESHOLD_PX);
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  function scrollToTop() {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
 
   async function handlePdf() {
-    const node = ref.current;
-    if (!node) return;
     const safeDate = detail.serviceDate.replaceAll(/[^\d-]/g, "-");
-    await downloadDomAsPdf(node, {
+    await downloadMediaSetlistPdf(detail, {
       filename: `setlist-media-${safeDate}-${detail._id.slice(-6)}.pdf`,
-      scale: 2,
-      backgroundColor: "#ffffff",
     });
   }
 
   return (
     <div className="min-h-screen bg-zinc-100/90 dark:bg-black px-3 py-6 sm:px-4 print:bg-white print:p-0">
       <div className="mx-auto max-w-3xl print:hidden flex flex-wrap items-center gap-2 mb-4">
-        <button
-          type="button"
-          onClick={() => window.print()}
-          className="rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2 text-sm font-medium"
-        >
-          Print
-        </button>
         <button
           type="button"
           onClick={() => void handlePdf()}
@@ -78,12 +85,13 @@ export default function SetlistMediaExportView({ detail }: SetlistMediaExportVie
             />
             <div>
               <p className="text-base font-semibold tracking-tight">Last Harvest Choir</p>
-              <p className="text-xs text-zinc-500">Medai/Lyrics</p>
+              <p className="text-xs text-zinc-500">Media / Lyrics</p>
             </div>
           </div>
           <div className="text-right">
             <p className="text-sm text-zinc-700">
-              {detail.serviceDate} - {detail.serviceTitle}
+              {formatIsoDateToDDMMYYYY(detail.serviceDate) || detail.serviceDate} -{" "}
+              {detail.serviceTitle}
             </p>
             <p className="text-sm text-zinc-600">
               Lead vocal:{" "}
@@ -93,27 +101,42 @@ export default function SetlistMediaExportView({ detail }: SetlistMediaExportVie
         </header>
 
         <div className="space-y-10">
-          {detail.songs.map((item, idx) => (
-            <section key={item._key} className="break-inside-avoid">
-              <h2 className="text-lg font-semibold border-b border-zinc-200 pb-2">
+          {detail.songs.map((item, idx) => {
+            const prev = detail.songs[idx - 1];
+            const sectionChanged =
+              idx === 0 ||
+              (item.section ?? "").trim() !== (prev?.section ?? "").trim();
+            const sectionLabel = (item.section ?? "").trim() || "Worship";
+
+            return (
+            <div key={item._key} className="break-inside-avoid space-y-3">
+              {sectionChanged ? (
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-600 border-b border-zinc-200 pb-1.5">
+                  {sectionLabel}
+                </h2>
+              ) : null}
+              <section>
+              <h3 className="text-lg font-semibold border-b border-zinc-200 pb-2">
                 {idx + 1}. {item.songName ?? "Song"}
-              </h2>
+              </h3>
               <div className="mt-3 space-y-4 text-sm leading-relaxed">
                 {LYRIC_ORDER.map(({ key, label }) => {
                   const text = item.lyricsSections[key];
                   if (!text || !text.trim()) return null;
                   return (
                     <div key={key}>
-                      <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500 mb-1">
+                      <h4 className="text-xs font-semibold uppercase tracking-wide text-zinc-500 mb-1">
                         {label}
-                      </h3>
+                      </h4>
                       <div className="whitespace-pre-wrap text-zinc-800">{text}</div>
                     </div>
                   );
                 })}
               </div>
-            </section>
-          ))}
+              </section>
+            </div>
+            );
+          })}
         </div>
 
         <div className="mt-8 border-t border-zinc-200 pt-3 text-center text-[11px] text-zinc-600">
@@ -123,6 +146,17 @@ export default function SetlistMediaExportView({ detail }: SetlistMediaExportVie
           </a>
         </div>
       </div>
+
+      {showScrollTop ? (
+        <button
+          type="button"
+          onClick={scrollToTop}
+          className="print:hidden fixed bottom-6 right-4 z-50 flex h-11 w-11 items-center justify-center rounded-full border border-emerald-700 bg-emerald-600 text-white shadow-lg transition hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-black sm:right-6"
+          aria-label="Back to top"
+        >
+          <ChevronUp className="h-6 w-6" aria-hidden />
+        </button>
+      ) : null}
     </div>
   );
 }

@@ -3,6 +3,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import BandCalendarMonth from "@/src/components/BandCalendarMonth";
 import type { Service } from "@/src/lib/sanity/client";
+import { formatIsoDateToDDMMYYYY } from "@/src/lib/formatDate";
 
 type AdminBandCalendarManagerProps = {
   authorized: boolean;
@@ -58,6 +59,11 @@ const EMPTY_REHEARSAL_DRAFT: RehearsalDraft = {
 };
 
 const PAGE_SIZE = 20;
+const SORT_HEADER_BUTTON_CLASS =
+  "inline-flex items-center gap-1 font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100 transition-colors";
+const PAGINATION_META_CLASS = "text-zinc-500 dark:text-zinc-400";
+const PAGINATION_BUTTON_CLASS =
+  "rounded-md border border-zinc-300 dark:border-zinc-700 px-2.5 py-1 text-zinc-700 dark:text-zinc-200 disabled:opacity-50";
 
 function notesToArray(notesText: string): string[] {
   return notesText
@@ -91,14 +97,6 @@ function rehearsalToDraft(rehearsal: RehearsalItem): RehearsalDraft {
   };
 }
 
-function formatDisplayDate(date: string): string {
-  const parts = date.split("-");
-  if (parts.length !== 3) return date;
-  const [year, month, day] = parts;
-  if (!year || !month || !day) return date;
-  return `${day}-${Number(month)}-${year}`;
-}
-
 function getLeadVocalNames(service: Service): string {
   const lead = service.assignments.find((item) => item.role === "Lead Vocal");
   const names = lead?.musicianNames ?? [];
@@ -124,6 +122,8 @@ export default function AdminBandCalendarManager({ authorized }: AdminBandCalend
   const [editServiceDraft, setEditServiceDraft] = useState<ServiceDraft>(EMPTY_SERVICE_DRAFT);
   const [serviceQuery, setServiceQuery] = useState("");
   const [servicePage, setServicePage] = useState(1);
+  const [serviceSortKey, setServiceSortKey] = useState<"date" | "service" | "leadVocal">("date");
+  const [serviceSortDirection, setServiceSortDirection] = useState<"asc" | "desc">("desc");
   const [selectedServiceMonth, setSelectedServiceMonth] = useState("");
 
   const [createRehearsalDraft, setCreateRehearsalDraft] = useState<RehearsalDraft>(EMPTY_REHEARSAL_DRAFT);
@@ -132,6 +132,8 @@ export default function AdminBandCalendarManager({ authorized }: AdminBandCalend
   const [editingRehearsalId, setEditingRehearsalId] = useState<string | null>(null);
   const [editRehearsalDraft, setEditRehearsalDraft] = useState<RehearsalDraft>(EMPTY_REHEARSAL_DRAFT);
   const [rehearsalPage, setRehearsalPage] = useState(1);
+  const [rehearsalSortKey, setRehearsalSortKey] = useState<"date" | "name" | "recurrence">("date");
+  const [rehearsalSortDirection, setRehearsalSortDirection] = useState<"asc" | "desc">("desc");
 
   const listRange = useMemo(() => {
     const now = new Date();
@@ -207,19 +209,47 @@ export default function AdminBandCalendarManager({ authorized }: AdminBandCalend
     });
   }, [selectedServiceMonth, serviceQuery, services]);
 
-  const serviceTotalPages = Math.max(1, Math.ceil(filteredServices.length / PAGE_SIZE));
+  const sortedServices = useMemo(() => {
+    const factor = serviceSortDirection === "asc" ? 1 : -1;
+    return [...filteredServices].sort((a, b) => {
+      if (serviceSortKey === "service") return factor * a.title.localeCompare(b.title);
+      if (serviceSortKey === "leadVocal") return factor * getLeadVocalNames(a).localeCompare(getLeadVocalNames(b));
+      return factor * a.date.localeCompare(b.date);
+    });
+  }, [filteredServices, serviceSortDirection, serviceSortKey]);
+
+  const serviceTotalPages = Math.max(1, Math.ceil(sortedServices.length / PAGE_SIZE));
   const safeServicePage = Math.min(servicePage, serviceTotalPages);
   const pagedServices = useMemo(() => {
     const start = (safeServicePage - 1) * PAGE_SIZE;
-    return filteredServices.slice(start, start + PAGE_SIZE);
-  }, [filteredServices, safeServicePage]);
+    return sortedServices.slice(start, start + PAGE_SIZE);
+  }, [safeServicePage, sortedServices]);
 
-  const rehearsalTotalPages = Math.max(1, Math.ceil(rehearsals.length / PAGE_SIZE));
+  const sortedRehearsals = useMemo(() => {
+    const factor = rehearsalSortDirection === "asc" ? 1 : -1;
+    return [...rehearsals].sort((a, b) => {
+      if (rehearsalSortKey === "name") return factor * (a.name ?? "").localeCompare(b.name ?? "");
+      if (rehearsalSortKey === "recurrence") return factor * ((a.repeatEveryDays ?? 0) - (b.repeatEveryDays ?? 0));
+      return factor * a.date.localeCompare(b.date);
+    });
+  }, [rehearsalSortDirection, rehearsalSortKey, rehearsals]);
+
+  const rehearsalTotalPages = Math.max(1, Math.ceil(sortedRehearsals.length / PAGE_SIZE));
   const safeRehearsalPage = Math.min(rehearsalPage, rehearsalTotalPages);
   const pagedRehearsals = useMemo(() => {
     const start = (safeRehearsalPage - 1) * PAGE_SIZE;
-    return rehearsals.slice(start, start + PAGE_SIZE);
-  }, [rehearsals, safeRehearsalPage]);
+    return sortedRehearsals.slice(start, start + PAGE_SIZE);
+  }, [safeRehearsalPage, sortedRehearsals]);
+
+  function serviceSortIcon(key: "date" | "service" | "leadVocal") {
+    if (serviceSortKey !== key) return "△";
+    return serviceSortDirection === "asc" ? "▲" : "▼";
+  }
+
+  function rehearsalSortIcon(key: "date" | "name" | "recurrence") {
+    if (rehearsalSortKey !== key) return "△";
+    return rehearsalSortDirection === "asc" ? "▲" : "▼";
+  }
 
   useEffect(() => {
     void refreshLists();
@@ -489,9 +519,27 @@ export default function AdminBandCalendarManager({ authorized }: AdminBandCalend
               <table className="min-w-full text-xs sm:text-sm">
                 <thead>
                   <tr className="text-left text-zinc-600 dark:text-zinc-300 border-b border-zinc-200 dark:border-zinc-800">
-                    <th className="py-2 px-3">Date</th>
-                    <th className="py-2 pr-3">Service</th>
-                    <th className="py-2 pr-3">Lead vocal</th>
+                    <th className="py-2 px-3">
+                      <button type="button" className={SORT_HEADER_BUTTON_CLASS} onClick={() => {
+                        if (serviceSortKey === "date") setServiceSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+                        else { setServiceSortKey("date"); setServiceSortDirection("desc"); }
+                        setServicePage(1);
+                      }}>Date {serviceSortIcon("date")}</button>
+                    </th>
+                    <th className="py-2 pr-3">
+                      <button type="button" className={SORT_HEADER_BUTTON_CLASS} onClick={() => {
+                        if (serviceSortKey === "service") setServiceSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+                        else { setServiceSortKey("service"); setServiceSortDirection("asc"); }
+                        setServicePage(1);
+                      }}>Service {serviceSortIcon("service")}</button>
+                    </th>
+                    <th className="py-2 pr-3">
+                      <button type="button" className={SORT_HEADER_BUTTON_CLASS} onClick={() => {
+                        if (serviceSortKey === "leadVocal") setServiceSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+                        else { setServiceSortKey("leadVocal"); setServiceSortDirection("asc"); }
+                        setServicePage(1);
+                      }}>Lead vocal {serviceSortIcon("leadVocal")}</button>
+                    </th>
                     <th className="py-2 pr-3 text-right">Actions</th>
                   </tr>
                 </thead>
@@ -499,7 +547,7 @@ export default function AdminBandCalendarManager({ authorized }: AdminBandCalend
                   {pagedServices.map((service) => (
                     <tr key={service._id} className="border-b border-zinc-100 dark:border-zinc-800/80">
                       <td className="py-2 px-3 text-zinc-800 dark:text-zinc-100">
-                        {formatDisplayDate(service.date)}
+                        {formatIsoDateToDDMMYYYY(service.date)}
                       </td>
                       <td className="py-2 pr-3 text-zinc-700 dark:text-zinc-300">{service.title}</td>
                       <td className="py-2 pr-3 text-zinc-700 dark:text-zinc-300">
@@ -530,17 +578,17 @@ export default function AdminBandCalendarManager({ authorized }: AdminBandCalend
               </table>
             </div>
           )}
-          {filteredServices.length > PAGE_SIZE ? (
+          {sortedServices.length > PAGE_SIZE ? (
             <div className="mt-3 flex items-center justify-between gap-2 text-xs sm:text-sm">
-              <div className="text-zinc-500 dark:text-zinc-400">
-                Page {safeServicePage} of {serviceTotalPages}
+              <div className={PAGINATION_META_CLASS}>
+                Showing {(safeServicePage - 1) * PAGE_SIZE + 1}-{Math.min(safeServicePage * PAGE_SIZE, sortedServices.length)} of {sortedServices.length}
               </div>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setServicePage((p) => Math.max(1, p - 1))}
                   disabled={safeServicePage <= 1}
-                  className="rounded-md border border-zinc-300 dark:border-zinc-700 px-2.5 py-1 text-zinc-700 dark:text-zinc-200 disabled:opacity-50"
+                  className={PAGINATION_BUTTON_CLASS}
                 >
                   Prev
                 </button>
@@ -548,7 +596,7 @@ export default function AdminBandCalendarManager({ authorized }: AdminBandCalend
                   type="button"
                   onClick={() => setServicePage((p) => Math.min(serviceTotalPages, p + 1))}
                   disabled={safeServicePage >= serviceTotalPages}
-                  className="rounded-md border border-zinc-300 dark:border-zinc-700 px-2.5 py-1 text-zinc-700 dark:text-zinc-200 disabled:opacity-50"
+                  className={PAGINATION_BUTTON_CLASS}
                 >
                   Next
                 </button>
@@ -579,9 +627,27 @@ export default function AdminBandCalendarManager({ authorized }: AdminBandCalend
               <table className="min-w-full text-xs sm:text-sm">
                 <thead>
                   <tr className="text-left text-zinc-600 dark:text-zinc-300 border-b border-zinc-200 dark:border-zinc-800">
-                    <th className="py-2 px-3">Date</th>
-                    <th className="py-2 pr-3">Name</th>
-                    <th className="py-2 pr-3">Recurrence</th>
+                    <th className="py-2 px-3">
+                      <button type="button" className={SORT_HEADER_BUTTON_CLASS} onClick={() => {
+                        if (rehearsalSortKey === "date") setRehearsalSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+                        else { setRehearsalSortKey("date"); setRehearsalSortDirection("desc"); }
+                        setRehearsalPage(1);
+                      }}>Date {rehearsalSortIcon("date")}</button>
+                    </th>
+                    <th className="py-2 pr-3">
+                      <button type="button" className={SORT_HEADER_BUTTON_CLASS} onClick={() => {
+                        if (rehearsalSortKey === "name") setRehearsalSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+                        else { setRehearsalSortKey("name"); setRehearsalSortDirection("asc"); }
+                        setRehearsalPage(1);
+                      }}>Name {rehearsalSortIcon("name")}</button>
+                    </th>
+                    <th className="py-2 pr-3">
+                      <button type="button" className={SORT_HEADER_BUTTON_CLASS} onClick={() => {
+                        if (rehearsalSortKey === "recurrence") setRehearsalSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+                        else { setRehearsalSortKey("recurrence"); setRehearsalSortDirection("asc"); }
+                        setRehearsalPage(1);
+                      }}>Recurrence {rehearsalSortIcon("recurrence")}</button>
+                    </th>
                     <th className="py-2 pr-3 text-right">Actions</th>
                   </tr>
                 </thead>
@@ -589,14 +655,14 @@ export default function AdminBandCalendarManager({ authorized }: AdminBandCalend
                   {pagedRehearsals.map((rehearsal) => (
                     <tr key={rehearsal._id} className="border-b border-zinc-100 dark:border-zinc-800/80">
                       <td className="py-2 px-3 text-zinc-800 dark:text-zinc-100">
-                        {formatDisplayDate(rehearsal.date)}
+                        {formatIsoDateToDDMMYYYY(rehearsal.date)}
                       </td>
                       <td className="py-2 pr-3 text-zinc-700 dark:text-zinc-300">
                         {rehearsal.name || "—"}
                       </td>
                       <td className="py-2 pr-3 text-zinc-700 dark:text-zinc-300">
                         {rehearsal.repeatEveryDays
-                          ? `Every ${rehearsal.repeatEveryDays} day(s) until ${rehearsal.untilDate ? formatDisplayDate(rehearsal.untilDate) : "-"}`
+                          ? `Every ${rehearsal.repeatEveryDays} day(s) until ${rehearsal.untilDate ? formatIsoDateToDDMMYYYY(rehearsal.untilDate) : "-"}`
                           : "One-time"}
                       </td>
                       <td className="py-2 pr-3 text-right whitespace-nowrap">
@@ -624,17 +690,17 @@ export default function AdminBandCalendarManager({ authorized }: AdminBandCalend
               </table>
             </div>
           )}
-          {rehearsals.length > PAGE_SIZE ? (
+          {sortedRehearsals.length > PAGE_SIZE ? (
             <div className="mt-3 flex items-center justify-between gap-2 text-xs sm:text-sm">
-              <div className="text-zinc-500 dark:text-zinc-400">
-                Page {safeRehearsalPage} of {rehearsalTotalPages}
+              <div className={PAGINATION_META_CLASS}>
+                Showing {(safeRehearsalPage - 1) * PAGE_SIZE + 1}-{Math.min(safeRehearsalPage * PAGE_SIZE, sortedRehearsals.length)} of {sortedRehearsals.length}
               </div>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setRehearsalPage((p) => Math.max(1, p - 1))}
                   disabled={safeRehearsalPage <= 1}
-                  className="rounded-md border border-zinc-300 dark:border-zinc-700 px-2.5 py-1 text-zinc-700 dark:text-zinc-200 disabled:opacity-50"
+                  className={PAGINATION_BUTTON_CLASS}
                 >
                   Prev
                 </button>
@@ -642,7 +708,7 @@ export default function AdminBandCalendarManager({ authorized }: AdminBandCalend
                   type="button"
                   onClick={() => setRehearsalPage((p) => Math.min(rehearsalTotalPages, p + 1))}
                   disabled={safeRehearsalPage >= rehearsalTotalPages}
-                  className="rounded-md border border-zinc-300 dark:border-zinc-700 px-2.5 py-1 text-zinc-700 dark:text-zinc-200 disabled:opacity-50"
+                  className={PAGINATION_BUTTON_CLASS}
                 >
                   Next
                 </button>

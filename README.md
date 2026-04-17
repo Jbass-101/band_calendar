@@ -1,14 +1,20 @@
 # Last Harvest Choir App
 
-Web app for choir and band operations, with public pages for schedule and songs plus authenticated admin tools for contributions and content management.
+Last Harvest Choir App helps choir and band leaders plan services, prepare teams, and keep ministry operations organized in one place.
 
-## Highlights
-- Public home page with quick access to `Schedule` and `Songs`
-- Dedicated band schedule page with month view and PDF export support
-- Unified songs page with repository view and admin management tab (when authenticated)
-- Admin dashboard and contributions tooling with centralized login/logout flow
-- Top navigation that adapts to public vs authenticated users
-- Embedded Sanity Studio for full content management
+## What Users Can Do
+- View upcoming services and rehearsals in a clear monthly calendar.
+- See who is assigned for each service, along with notes and dress/uniform guidance.
+- Open setlists directly from the calendar to quickly review song order.
+- Browse a shared song library with lyrics and reference links for practice.
+- Print or download clean PDF plans for band members, singers, and media teams.
+
+## What Leaders/Admins Can Do
+- Sign in to a secure admin area with quick access to Calendar, Songs, Setlists, Contributions, and Studio.
+- Add and manage songs and setlists from built-in management tabs.
+- Track monthly giving with simple overviews, entries, expenses, and activity logs.
+- Generate monthly and year-to-date contribution statements as PDFs.
+- Use embedded Sanity Studio for full record and content management.
 
 ## Tech Stack
 - Next.js (App Router)
@@ -34,11 +40,14 @@ Web app for choir and band operations, with public pages for schedule and songs 
 ## Main Routes
 - `/` - Public landing page (`Last Harvest Choir`)
 - `/schedule` - Band schedule (`Last Harvest Instrumentalists`)
+- `/calendar` - Band schedule alias/entry used from admin
 - `/songs` - Song repository (plus manage tab for authenticated users)
+- `/setlists` - Setlist repository (plus manage tab for authenticated users)
+- `/setlists/[id]/export/band` - Band-friendly setlist export
+- `/setlists/[id]/export/media` - Media/lyrics setlist export
 - `/login` - Central admin login page
 - `/admin` - Admin dashboard (requires auth)
 - `/contributions` - Contributions management (requires auth)
-- `/setlists` - Setlist repository
 - `/studio` - Embedded Sanity Studio
 
 ## Auth Flow

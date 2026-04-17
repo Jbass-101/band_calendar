@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import type { Setlist, SetlistStatus, ServicePickerOption, Song } from "@/src/lib/sanity/client";
+import { formatIsoDateToDDMMYYYY } from "@/src/lib/formatDate";
 
 type AdminSetlistsManagerProps = {
   authorized: boolean;
@@ -69,13 +70,13 @@ function sortSongsForPicker(list: Song[]): Song[] {
   return [...list].sort((a, b) => a.number - b.number || a.name.localeCompare(b.name));
 }
 
-function formatDisplayDate(date: string): string {
-  const parts = date.split("-");
-  if (parts.length !== 3) return date;
-  const [year, month, day] = parts;
-  if (!year || !month || !day) return date;
-  return `${day}-${month}-${year}`;
-}
+const PAGE_SIZE = 20;
+type SetlistSortKey = "service" | "leadVocal" | "status" | "songs";
+const SORT_HEADER_BUTTON_CLASS =
+  "inline-flex items-center gap-1 font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100 transition-colors";
+const PAGINATION_META_CLASS = "text-zinc-500 dark:text-zinc-400";
+const PAGINATION_BUTTON_CLASS =
+  "rounded-md border border-zinc-300 dark:border-zinc-700 px-2.5 py-1 text-zinc-700 dark:text-zinc-200 disabled:opacity-50";
 
 export default function AdminSetlistsManager({
   authorized,
@@ -93,6 +94,9 @@ export default function AdminSetlistsManager({
     setSetlists(initialSetlists);
   }, [initialSetlists]);
   const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [sortKey, setSortKey] = useState<SetlistSortKey>("service");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -380,6 +384,40 @@ export default function AdminSetlistsManager({
     });
   }, [setlists, query]);
 
+  const sortedSetlists = useMemo(() => {
+    const factor = sortDirection === "asc" ? 1 : -1;
+    return [...filteredSetlists].sort((a, b) => {
+      if (sortKey === "leadVocal") {
+        return factor * (a.leadVocalNames.join(", ").localeCompare(b.leadVocalNames.join(", ")));
+      }
+      if (sortKey === "status") return factor * a.status.localeCompare(b.status);
+      if (sortKey === "songs") return factor * (a.songs.length - b.songs.length);
+      return factor * a.serviceDate.localeCompare(b.serviceDate);
+    });
+  }, [filteredSetlists, sortDirection, sortKey]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedSetlists.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pagedSetlists = useMemo(() => {
+    const start = (safePage - 1) * PAGE_SIZE;
+    return sortedSetlists.slice(start, start + PAGE_SIZE);
+  }, [safePage, sortedSetlists]);
+
+  function toggleSort(nextKey: SetlistSortKey) {
+    setPage(1);
+    if (sortKey === nextKey) {
+      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setSortKey(nextKey);
+    setSortDirection(nextKey === "service" ? "desc" : "asc");
+  }
+
+  function sortIcon(key: SetlistSortKey) {
+    if (sortKey !== key) return "△";
+    return sortDirection === "asc" ? "▲" : "▼";
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!serviceId) {
@@ -466,7 +504,7 @@ export default function AdminSetlistsManager({
 
   async function handleDelete(sl: Setlist) {
     const ok = window.confirm(
-      `Delete this setlist for ${formatDisplayDate(sl.serviceDate)} (${sl.serviceTitle})? This cannot be undone.`
+      `Delete this setlist for ${formatIsoDateToDDMMYYYY(sl.serviceDate)} (${sl.serviceTitle})? This cannot be undone.`
     );
     if (!ok) return;
     try {
@@ -518,7 +556,10 @@ export default function AdminSetlistsManager({
           <input
             type="text"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setPage(1);
+            }}
             className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm"
             placeholder="Filter by title, date, service..."
           />
@@ -528,25 +569,41 @@ export default function AdminSetlistsManager({
           <table className="min-w-full text-xs sm:text-sm">
             <thead>
               <tr className="text-left text-zinc-600 dark:text-zinc-300 border-b border-zinc-200 dark:border-zinc-800">
-                <th className="py-2 px-3">Service</th>
-                <th className="py-2 pr-3">Lead vocal</th>
-                <th className="py-2 pr-3">Status</th>
-                <th className="py-2 pr-3">Songs</th>
+                <th className="py-2 px-3">
+                  <button type="button" onClick={() => toggleSort("service")} className={SORT_HEADER_BUTTON_CLASS}>
+                    Service {sortIcon("service")}
+                  </button>
+                </th>
+                <th className="py-2 pr-3">
+                  <button type="button" onClick={() => toggleSort("leadVocal")} className={SORT_HEADER_BUTTON_CLASS}>
+                    Lead vocal {sortIcon("leadVocal")}
+                  </button>
+                </th>
+                <th className="py-2 pr-3">
+                  <button type="button" onClick={() => toggleSort("status")} className={SORT_HEADER_BUTTON_CLASS}>
+                    Status {sortIcon("status")}
+                  </button>
+                </th>
+                <th className="py-2 pr-3">
+                  <button type="button" onClick={() => toggleSort("songs")} className={SORT_HEADER_BUTTON_CLASS}>
+                    Songs {sortIcon("songs")}
+                  </button>
+                </th>
                 <th className="py-2 pr-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {filteredSetlists.length === 0 ? (
+              {sortedSetlists.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-4 px-3 text-zinc-500">
                     No setlists match.
                   </td>
                 </tr>
               ) : (
-                filteredSetlists.map((sl) => (
+                pagedSetlists.map((sl) => (
                   <tr key={sl._id} className="border-b border-zinc-100 dark:border-zinc-800/80">
                     <td className="py-2 px-3 text-zinc-800 dark:text-zinc-100">
-                      <div className="font-medium">{formatDisplayDate(sl.serviceDate)}</div>
+                      <div className="font-medium">{formatIsoDateToDDMMYYYY(sl.serviceDate)}</div>
                       <div className="text-zinc-500 dark:text-zinc-400">{sl.serviceTitle}</div>
                     </td>
                     <td className="py-2 pr-3 text-zinc-700 dark:text-zinc-300">
@@ -576,6 +633,31 @@ export default function AdminSetlistsManager({
             </tbody>
           </table>
         </div>
+        {sortedSetlists.length > PAGE_SIZE ? (
+          <div className="mt-3 flex items-center justify-between gap-2 text-xs sm:text-sm">
+            <div className={PAGINATION_META_CLASS}>
+              Showing {(safePage - 1) * PAGE_SIZE + 1}-{Math.min(safePage * PAGE_SIZE, sortedSetlists.length)} of {sortedSetlists.length}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={safePage <= 1}
+                className={PAGINATION_BUTTON_CLASS}
+              >
+                Prev
+              </button>
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={safePage >= totalPages}
+                className={PAGINATION_BUTTON_CLASS}
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {modalOpen ? (
