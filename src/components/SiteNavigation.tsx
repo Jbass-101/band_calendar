@@ -11,7 +11,6 @@ import {
   ListMusic,
   Music,
   type LucideIcon,
-  Workflow,
 } from "lucide-react";
 import { BRANDING } from "@/src/lib/branding";
 
@@ -31,7 +30,6 @@ const AUTHORIZED_LINKS = [
   { href: "/contributions", label: "Contributions" },
   { href: "/songs", label: "Songs" },
   { href: "/setlists", label: "Setlists" },
-  { href: "/studio", label: "Studio" },
 ] as const;
 
 const NAV_ICONS: Record<string, LucideIcon> = {
@@ -40,13 +38,11 @@ const NAV_ICONS: Record<string, LucideIcon> = {
   "/contributions": CircleDollarSign,
   "/songs": Music,
   "/setlists": ListMusic,
-  "/studio": Workflow,
   "/schedule": CalendarDays,
 };
 
 function isActive(pathname: string, href: string) {
   if (href === "/admin") return pathname === "/admin" || pathname.startsWith("/admin/");
-  if (href === "/studio") return pathname === "/studio" || pathname.startsWith("/studio/");
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { CalendarDays, CircleDollarSign, ListMusic, Music, type LucideIcon, Workflow } from "lucide-react";
+import { CalendarDays, CircleDollarSign, ListMusic, Music, type LucideIcon } from "lucide-react";
 
 type AdminManagerProps = {
   authorized?: boolean;
@@ -31,12 +31,6 @@ const ADMIN_CARDS = [
     description: "View and manage the worship setlist collections.",
     href: "/setlists",
     icon: ListMusic,
-  },
-  {
-    title: "Sanity Studio",
-    description: "Open the full studio to manage all document types.",
-    href: "/studio",
-    icon: Workflow,
   },
 ] as const satisfies ReadonlyArray<{
   title: string;
