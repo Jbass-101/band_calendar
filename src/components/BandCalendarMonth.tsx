@@ -7,6 +7,7 @@ import { downloadDomAsPdf } from "@/src/lib/exportDomToPdf";
 import {
   Drum,
   Guitar,
+  Loader2,
   Mars,
   Mic,
   Piano,
@@ -14,7 +15,8 @@ import {
   Venus,
   type LucideIcon,
 } from "lucide-react";
-import type { Service } from "@/src/lib/sanity/client";
+import { BRANDING } from "@/src/lib/branding";
+import type { Service, SetlistDetail, SetlistSongItem } from "@/src/lib/sanity/client";
 
 const ROLE_ORDER = [
   "Lead Vocal",
@@ -111,6 +113,25 @@ function formatExportGeneratedAt(d: Date): string {
   }).format(d);
 }
 
+function formatSetlistDisplayDate(date: string): string {
+  const parts = date.split("-");
+  if (parts.length !== 3) return date;
+  const [year, month, day] = parts;
+  if (!year || !month || !day) return date;
+  return `${day}-${month}-${year}`;
+}
+
+function formatSetlistKey(item: SetlistSongItem): string {
+  const v = item.keyOverride ?? item.defaultKey;
+  return v && v.trim() ? v.trim() : "—";
+}
+
+function formatSetlistTempo(item: SetlistSongItem): string {
+  if (item.tempoOverride != null) return String(item.tempoOverride);
+  if (item.tempoBpm != null) return String(item.tempoBpm);
+  return "—";
+}
+
 function getServiceCardClass(service: Service | undefined, isPast: boolean): string {
   if (isPast) return "border-zinc-200 dark:border-zinc-800 bg-zinc-100/50 dark:bg-black/30 opacity-70";
   if (!service || service.variant === "default") {
@@ -139,6 +160,10 @@ export default function BandCalendarMonth() {
   const [exportMode, setExportMode] = useState(false);
   const [exportGeneratedAt, setExportGeneratedAt] = useState<Date | null>(null);
   const [uniformTab, setUniformTab] = useState<UniformTab>("women");
+  const [setlistPreviewOpen, setSetlistPreviewOpen] = useState(false);
+  const [setlistPreviewLoading, setSetlistPreviewLoading] = useState(false);
+  const [setlistPreviewError, setSetlistPreviewError] = useState<string | null>(null);
+  const [setlistPreview, setSetlistPreview] = useState<SetlistDetail | null>(null);
   const exportRef = useRef<HTMLDivElement | null>(null);
 
   const todayKey = useMemo(() => formatYMDLocal(new Date()), []);
@@ -296,6 +321,23 @@ export default function BandCalendarMonth() {
       setExportError(e instanceof Error ? e.message : "Failed to export PDF");
     } finally {
       setExportMode(false);
+    }
+  };
+
+  const openSetlistPreview = async (setlistId: string) => {
+    setSetlistPreviewOpen(true);
+    setSetlistPreviewLoading(true);
+    setSetlistPreviewError(null);
+    try {
+      const res = await fetch(`/api/setlists/${encodeURIComponent(setlistId)}`);
+      const payload = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) throw new Error(payload.error ?? "Failed to load setlist.");
+      setSetlistPreview(payload as SetlistDetail);
+    } catch (err) {
+      setSetlistPreview(null);
+      setSetlistPreviewError(err instanceof Error ? err.message : "Failed to load setlist.");
+    } finally {
+      setSetlistPreviewLoading(false);
     }
   };
 
@@ -510,12 +552,13 @@ export default function BandCalendarMonth() {
                         </div>
                         {svc.setlist ? (
                           <div className="mt-1">
-                            <Link
-                              href={`/setlists#${svc.setlist._id}`}
+                            <button
+                              type="button"
+                              onClick={() => void openSetlistPreview(svc.setlist!._id)}
                               className="text-[10px] font-medium text-emerald-700 dark:text-emerald-400 hover:underline"
                             >
                               Setlist ({svc.setlist.status})
-                            </Link>
+                            </button>
                           </div>
                         ) : null}
                         {svc.notes.length > 0 ? (
@@ -835,6 +878,102 @@ export default function BandCalendarMonth() {
                 Extra Brains
               </a>
             </div>
+          </div>
+        </div>
+      ) : null}
+
+      {setlistPreviewOpen ? (
+        <div
+          className="fixed inset-0 z-50 bg-black/55 backdrop-blur-[1px] flex items-center justify-center p-3 sm:p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Setlist preview"
+          onClick={() => setSetlistPreviewOpen(false)}
+        >
+          <div
+            className="w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-4 sm:p-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-3 border-b border-zinc-200 dark:border-zinc-800 pb-3">
+              <div className="flex items-center gap-2">
+                <Image
+                  src={BRANDING.main.logoSrc}
+                  alt={BRANDING.main.logoAlt}
+                  width={36}
+                  height={36}
+                  className="h-9 w-9 rounded-full object-cover"
+                  unoptimized
+                />
+                <div>
+                  <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Band setlist preview</p>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">Band Calendar</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSetlistPreviewOpen(false)}
+                className="rounded-md border border-zinc-300 dark:border-zinc-700 px-2.5 py-1 text-xs"
+              >
+                Close
+              </button>
+            </div>
+
+            {setlistPreviewLoading ? (
+              <div className="py-10 text-sm text-zinc-600 dark:text-zinc-300 flex items-center justify-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading setlist...
+              </div>
+            ) : setlistPreviewError ? (
+              <div className="mt-4 rounded-lg border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/30 px-3 py-2 text-sm text-red-700 dark:text-red-300">
+                {setlistPreviewError}
+              </div>
+            ) : setlistPreview ? (
+              <div className="pt-4 text-zinc-900 dark:text-zinc-100">
+                <h3 className="text-xl font-semibold tracking-tight">
+                  {formatSetlistDisplayDate(setlistPreview.serviceDate)} - {setlistPreview.serviceTitle}
+                </h3>
+                {setlistPreview.leadVocalNames.length > 0 ? (
+                  <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
+                    Lead vocal: {setlistPreview.leadVocalNames.join(", ")}
+                  </p>
+                ) : null}
+                <div className="mt-4 overflow-x-auto rounded-md border border-zinc-200 dark:border-zinc-800">
+                  <table className="w-full text-sm border-collapse">
+                    <thead>
+                      <tr className="border-b border-zinc-200 dark:border-zinc-800 text-left text-zinc-600 dark:text-zinc-300">
+                        <th className="py-2 px-3">#</th>
+                        <th className="py-2 pr-3">Song</th>
+                        <th className="py-2 pr-3">Key</th>
+                        <th className="py-2 pr-3">Tempo</th>
+                        <th className="py-2 pr-3">Notes</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {setlistPreview.songs.map((item, idx) => (
+                        <tr key={item._key} className="border-b border-zinc-100 dark:border-zinc-800/80">
+                          <td className="py-2 px-3 font-medium">{item.songNumber ?? idx + 1}</td>
+                          <td className="py-2 pr-3">{item.songName ?? "—"}</td>
+                          <td className="py-2 pr-3">{formatSetlistKey(item)}</td>
+                          <td className="py-2 pr-3">{formatSetlistTempo(item)}</td>
+                          <td className="py-2 pr-3">{item.note ?? "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {setlistPreview.notes ? (
+                  <p className="mt-4 text-sm text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap border-t border-zinc-200 dark:border-zinc-800 pt-3">
+                    {setlistPreview.notes}
+                  </p>
+                ) : null}
+                <div className="mt-5 border-t border-zinc-200 dark:border-zinc-800 pt-2 text-center text-[11px] text-zinc-500 dark:text-zinc-400">
+                  Powered by{" "}
+                  <a href="https://extrabrains.co.za/" className="font-semibold text-emerald-600 dark:text-emerald-400 underline">
+                    Extra Brains
+                  </a>
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}

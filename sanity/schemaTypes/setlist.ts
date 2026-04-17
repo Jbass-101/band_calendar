@@ -36,6 +36,13 @@ export const setlist = defineType({
       description: "Optional display title. Date and slot come from the linked service.",
     }),
     defineField({
+      name: "leadVocal",
+      title: "Lead Vocal",
+      type: "string",
+      description: "Required setlist lead vocal, used for filtering and planning.",
+      validation: (rule) => rule.required().min(1),
+    }),
+    defineField({
       name: "service",
       title: "Service",
       type: "reference",
@@ -111,12 +118,6 @@ export const setlist = defineType({
               title: "Key override",
               type: "string",
               description: "Live key if different from the song default (e.g. Bb).",
-            }),
-            defineField({
-              name: "capo",
-              title: "Capo",
-              type: "string",
-              description: "Fret position if applicable (e.g. 2).",
             }),
             defineField({
               name: "tempoOverride",

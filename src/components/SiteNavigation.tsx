@@ -13,6 +13,7 @@ type SiteNavigationProps = {
 const PUBLIC_LINKS = [
   { href: "/schedule", label: "Schedule" },
   { href: "/songs", label: "Songs" },
+  { href: "/setlists", label: "Setlists" },
   { href: "/admin", label: "Admin" },
 ] as const;
 

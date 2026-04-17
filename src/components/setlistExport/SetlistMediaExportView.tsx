@@ -1,8 +1,10 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useRef } from "react";
 import { downloadDomAsPdf } from "@/src/lib/exportDomToPdf";
+import { BRANDING } from "@/src/lib/branding";
 import type { SetlistDetail, SetlistDetailSong } from "@/src/lib/sanity/client";
 
 const LYRIC_ORDER: Array<{ key: keyof SetlistDetailSong["lyricsSections"]; label: string }> = [
@@ -35,8 +37,6 @@ export default function SetlistMediaExportView({ detail }: SetlistMediaExportVie
     });
   }
 
-  const heading = detail.title?.trim() || `Setlist — ${detail.serviceDate}`;
-
   return (
     <div className="min-h-screen bg-zinc-100/90 dark:bg-black px-3 py-6 sm:px-4 print:bg-white print:p-0">
       <div className="mx-auto max-w-3xl print:hidden flex flex-wrap items-center gap-2 mb-4">
@@ -66,12 +66,30 @@ export default function SetlistMediaExportView({ detail }: SetlistMediaExportVie
         ref={ref}
         className="mx-auto max-w-3xl rounded-xl border border-zinc-200 bg-white p-6 text-zinc-900 shadow-sm print:shadow-none print:border-0 print:rounded-none"
       >
-        <header className="border-b border-zinc-200 pb-4 mb-6">
-          <p className="text-xs uppercase tracking-wide text-zinc-500">Media / lyrics</p>
-          <h1 className="text-2xl font-semibold tracking-tight">{heading}</h1>
-          <p className="mt-1 text-sm text-zinc-600">
-            {detail.serviceDate} — {detail.serviceTitle}
-          </p>
+        <header className="mb-6 flex items-start justify-between gap-4 border-b border-zinc-200 pb-4">
+          <div className="flex items-center gap-3">
+            <Image
+              src={BRANDING.main.logoSrc}
+              alt={BRANDING.main.logoAlt}
+              width={44}
+              height={44}
+              className="h-11 w-11 rounded-full object-cover"
+              unoptimized
+            />
+            <div>
+              <p className="text-base font-semibold tracking-tight">Last Harvest Choir</p>
+              <p className="text-xs text-zinc-500">Medai/Lyrics</p>
+            </div>
+          </div>
+          <div className="text-right">
+            <p className="text-sm text-zinc-700">
+              {detail.serviceDate} - {detail.serviceTitle}
+            </p>
+            <p className="text-sm text-zinc-600">
+              Lead vocal:{" "}
+              {detail.leadVocalNames.length > 0 ? detail.leadVocalNames.join(", ") : "—"}
+            </p>
+          </div>
         </header>
 
         <div className="space-y-10">
@@ -96,6 +114,13 @@ export default function SetlistMediaExportView({ detail }: SetlistMediaExportVie
               </div>
             </section>
           ))}
+        </div>
+
+        <div className="mt-8 border-t border-zinc-200 pt-3 text-center text-[11px] text-zinc-600">
+          Powered by{" "}
+          <a href="https://extrabrains.co.za/" className="font-semibold text-emerald-600 underline">
+            Extra Brains
+          </a>
         </div>
       </div>
     </div>

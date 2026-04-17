@@ -6,6 +6,7 @@ import type { Setlist, SetlistSongItem, Song } from "@/src/lib/sanity/client";
 
 type SetlistRepositoryProps = {
   setlists: Setlist[];
+  embedded?: boolean;
 };
 
 function songGenreLabel(genre: Song["genre"] | null) {
@@ -46,12 +47,15 @@ function formatTempo(item: SetlistSongItem): string {
   return "—";
 }
 
-function formatCapo(item: SetlistSongItem): string {
-  const v = item.capo;
-  return v && v.trim() ? v.trim() : "—";
+function formatDisplayDate(date: string): string {
+  const parts = date.split("-");
+  if (parts.length !== 3) return date;
+  const [year, month, day] = parts;
+  if (!year || !month || !day) return date;
+  return `${day}-${month}-${year}`;
 }
 
-export default function SetlistRepository({ setlists }: SetlistRepositoryProps) {
+export default function SetlistRepository({ setlists, embedded = false }: SetlistRepositoryProps) {
   const [query, setQuery] = useState("");
 
   const filteredSetlists = useMemo(() => {
@@ -68,7 +72,6 @@ export default function SetlistRepository({ setlists }: SetlistRepositoryProps) 
             item.note ?? "",
             item.keyOverride ?? "",
             item.defaultKey ?? "",
-            item.capo ?? "",
             item.tempoOverride ?? "",
             item.tempoBpm ?? "",
           ].join(" ")
@@ -78,7 +81,6 @@ export default function SetlistRepository({ setlists }: SetlistRepositoryProps) 
       const leads = setlist.leadVocalNames.join(" ");
 
       const haystack = [
-        setlist.title ?? "",
         setlist.serviceDate,
         setlist.serviceTitle,
         setlist.status,
@@ -99,11 +101,12 @@ export default function SetlistRepository({ setlists }: SetlistRepositoryProps) 
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="text-lg sm:text-xl font-semibold text-zinc-900 dark:text-zinc-100">
-              Setlists
+              {embedded ? "Repository" : "Setlists"}
             </h1>
             <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-              Ordered songs per calendar service. Manage setlists in Sanity Studio (link each to a
-              service).
+              {embedded
+                ? "Browse ordered songs per calendar service and open exports."
+                : "Ordered songs per calendar service. Sign in to create or edit setlists in Manage."}
             </p>
           </div>
           <div className="text-xs text-zinc-500 dark:text-zinc-400">
@@ -135,14 +138,11 @@ export default function SetlistRepository({ setlists }: SetlistRepositoryProps) 
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <h2 className="text-sm sm:text-base font-semibold text-zinc-900 dark:text-zinc-100">
-                      {setlist.title ?? `Setlist — ${setlist.serviceDate}`}
+                    <h2 className="text-sm sm:text-base font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+                      {formatDisplayDate(setlist.serviceDate)} - {setlist.serviceTitle}
                     </h2>
-                    <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
-                      {setlist.serviceDate} • {setlist.serviceTitle}
-                    </p>
                     {setlist.leadVocalNames.length > 0 ? (
-                      <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                      <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
                         Lead vocal: {setlist.leadVocalNames.join(", ")}
                       </p>
                     ) : null}
@@ -184,7 +184,6 @@ export default function SetlistRepository({ setlists }: SetlistRepositoryProps) 
                           <th className="py-2 pr-3">Genre</th>
                           <th className="py-2 pr-3">Key</th>
                           <th className="py-2 pr-3">Tempo</th>
-                          <th className="py-2 pr-3">Capo</th>
                           <th className="py-2 pr-3">Note</th>
                         </tr>
                       </thead>
@@ -208,9 +207,6 @@ export default function SetlistRepository({ setlists }: SetlistRepositoryProps) 
                             </td>
                             <td className="py-2 pr-3 text-zinc-700 dark:text-zinc-300">
                               {formatTempo(item)}
-                            </td>
-                            <td className="py-2 pr-3 text-zinc-700 dark:text-zinc-300">
-                              {formatCapo(item)}
                             </td>
                             <td className="py-2 pr-3 text-zinc-700 dark:text-zinc-300">
                               {item.note ?? "—"}

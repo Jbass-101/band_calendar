@@ -56,12 +56,12 @@ export type Song = {
 export type SetlistSongItem = {
   _key: string;
   songId: string | null;
+  section: string;
   songNumber: number | null;
   songName: string | null;
   songGenre: Song["genre"] | null;
   note: string | null;
   keyOverride: string | null;
-  capo: string | null;
   tempoOverride: number | null;
   defaultKey: string | null;
   tempoBpm: number | null;
@@ -70,6 +70,7 @@ export type SetlistSongItem = {
 export type Setlist = {
   _id: string;
   title: string | null;
+  assignedLeadVocal: string | null;
   status: SetlistStatus;
   notes: string | null;
   serviceId: string;
@@ -458,17 +459,18 @@ export async function fetchSetlists(): Promise<Setlist[]> {
   const query = `*[_type == "setlist" && defined(service)] | order(service->date desc){
     _id,
     title,
+    leadVocal,
     status,
     notes,
-    "serviceId": service._id,
+    "serviceId": service._ref,
     "serviceDate": service->date,
     "serviceTitle": service->title,
-    "leadVocalNames": service->leadVocal[]->name,
+    "leadVocalNames": select(defined(leadVocal) && leadVocal != "" => [leadVocal], service->leadVocal[]->name),
     "songs": songs[]{
       _key,
+      section,
       note,
       keyOverride,
-      capo,
       tempoOverride,
       "songId": song._ref,
       "songNumber": song->number,
@@ -484,6 +486,7 @@ export async function fetchSetlists(): Promise<Setlist[]> {
     Array<{
       _id: string;
       title?: string | null;
+      leadVocal?: string | null;
       status?: string | null;
       notes?: string | null;
       serviceId?: string | null;
@@ -492,9 +495,9 @@ export async function fetchSetlists(): Promise<Setlist[]> {
       leadVocalNames?: Array<string | null> | null;
       songs?: Array<{
         _key?: string | null;
+        section?: string | null;
         note?: string | null;
         keyOverride?: string | null;
-        capo?: string | null;
         tempoOverride?: number | null;
         songId?: string | null;
         songNumber?: number | null;
@@ -545,12 +548,12 @@ export async function fetchSetlists(): Promise<Setlist[]> {
               return {
                 _key: normalizeString(item._key) ?? `row-${idx}`,
                 songId: normalizeString(item.songId),
+                section: normalizeString(item.section) ?? "Worship",
                 songNumber: typeof item.songNumber === "number" ? item.songNumber : null,
                 songName: normalizeString(item.songName),
                 songGenre: normalizeSongGenre(item.songGenre),
                 note: normalizeString(item.note),
                 keyOverride: normalizeString(item.keyOverride),
-                capo: normalizeString(item.capo),
                 tempoOverride,
                 defaultKey: normalizeString(item.defaultKey),
                 tempoBpm,
@@ -562,6 +565,7 @@ export async function fetchSetlists(): Promise<Setlist[]> {
       return {
         _id: setlist._id,
         title: normalizeString(setlist.title),
+        assignedLeadVocal: normalizeString(setlist.leadVocal),
         status: normalizeSetlistStatusValue(setlist.status),
         notes: normalizeString(setlist.notes),
         serviceId,
@@ -581,17 +585,18 @@ export async function fetchSetlistById(id: string): Promise<SetlistDetail | null
   const query = `*[_type == "setlist" && _id == $id && defined(service)][0]{
     _id,
     title,
+    leadVocal,
     status,
     notes,
-    "serviceId": service._id,
+    "serviceId": service._ref,
     "serviceDate": service->date,
     "serviceTitle": service->title,
-    "leadVocalNames": service->leadVocal[]->name,
+    "leadVocalNames": select(defined(leadVocal) && leadVocal != "" => [leadVocal], service->leadVocal[]->name),
     "songs": songs[]{
       _key,
+      section,
       note,
       keyOverride,
-      capo,
       tempoOverride,
       "songId": song._ref,
       "songNumber": song->number,
@@ -618,6 +623,7 @@ export async function fetchSetlistById(id: string): Promise<SetlistDetail | null
     | {
         _id: string;
         title?: string | null;
+        leadVocal?: string | null;
         status?: string | null;
         notes?: string | null;
         serviceId?: string | null;
@@ -626,9 +632,9 @@ export async function fetchSetlistById(id: string): Promise<SetlistDetail | null
         leadVocalNames?: Array<string | null> | null;
         songs?: Array<{
           _key?: string | null;
+          section?: string | null;
           note?: string | null;
           keyOverride?: string | null;
-          capo?: string | null;
           tempoOverride?: number | null;
           songId?: string | null;
           songNumber?: number | null;
@@ -713,12 +719,12 @@ export async function fetchSetlistById(id: string): Promise<SetlistDetail | null
           return {
             _key: normalizeString(item._key) ?? `row-${idx}`,
             songId: normalizeString(item.songId),
+            section: normalizeString(item.section) ?? "Worship",
             songNumber: typeof item.songNumber === "number" ? item.songNumber : null,
             songName: normalizeString(item.songName),
             songGenre: normalizeSongGenre(item.songGenre),
             note: normalizeString(item.note),
             keyOverride: normalizeString(item.keyOverride),
-            capo: normalizeString(item.capo),
             tempoOverride,
             defaultKey: normalizeString(item.defaultKey),
             tempoBpm,
@@ -731,6 +737,7 @@ export async function fetchSetlistById(id: string): Promise<SetlistDetail | null
   return {
     _id: raw._id,
     title: normalizeString(raw.title),
+    assignedLeadVocal: normalizeString(raw.leadVocal),
     status: normalizeSetlistStatusValue(raw.status),
     notes: normalizeString(raw.notes),
     serviceId,
@@ -739,5 +746,52 @@ export async function fetchSetlistById(id: string): Promise<SetlistDetail | null
     leadVocalNames,
     songs,
   };
+}
+
+export type ServicePickerOption = {
+  _id: string;
+  date: string;
+  title: string;
+  leadVocalNames: string[];
+};
+
+/** Recent services for linking setlists (admin UI). */
+export async function fetchServicesForSetlistPicker(): Promise<ServicePickerOption[]> {
+  const query = `*[_type == "service"] | order(date desc) [0...120] {
+    _id,
+    date,
+    title,
+    "leadVocalNames": leadVocal[]->name
+  }`;
+
+  const client = getSanityClient();
+  const raw = await client.fetch<
+    Array<{
+      _id: string;
+      date?: string | null;
+      title?: string | null;
+      leadVocalNames?: Array<string | null> | null;
+    }>
+  >(query);
+
+  const normalizeString = (value: unknown): string | null => {
+    if (typeof value !== "string") return null;
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  };
+
+  return raw
+    .map((row) => {
+      const date = normalizeString(row.date);
+      const title = normalizeString(row.title);
+      if (!date || !title) return null;
+      const leadVocalNames = Array.isArray(row.leadVocalNames)
+        ? row.leadVocalNames
+            .map((name) => (typeof name === "string" ? name.trim() : ""))
+            .filter((name) => name.length > 0)
+        : [];
+      return { _id: row._id, date, title, leadVocalNames } satisfies ServicePickerOption;
+    })
+    .filter((row): row is ServicePickerOption => Boolean(row));
 }
 
