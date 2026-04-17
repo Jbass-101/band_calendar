@@ -42,6 +42,48 @@ function newLineKey(): string {
   return randomUUID().replace(/-/g, "").slice(0, 16);
 }
 
+const LEAD_VOCAL_ROLE = "Lead Vocal";
+
+async function findMusicianIdForLeadVocalName(
+  client: ReturnType<typeof getSanityWriteClient>,
+  name: string
+): Promise<string | null> {
+  const trimmed = name.trim();
+  if (!trimmed) return null;
+  return client.fetch<string | null>(
+    `*[_type == "musician" && lower(name) == lower($name) && $role in roles][0]._id`,
+    { name: trimmed, role: LEAD_VOCAL_ROLE }
+  );
+}
+
+/** Updates the service document’s `leadVocal` references to match the chosen name. */
+async function syncServiceLeadVocalAssignment(
+  client: ReturnType<typeof getSanityWriteClient>,
+  serviceId: string,
+  leadVocalName: string
+): Promise<{ ok: true } | { error: string }> {
+  const musicianId = await findMusicianIdForLeadVocalName(client, leadVocalName);
+  if (!musicianId) {
+    return {
+      error: `No musician with the Lead Vocal role matches "${leadVocalName.trim()}".`,
+    };
+  }
+  const key = randomUUID().replace(/-/g, "").slice(0, 16);
+  await client
+    .patch(serviceId)
+    .set({
+      leadVocal: [
+        {
+          _key: key,
+          _type: "reference",
+          _ref: musicianId,
+        },
+      ],
+    })
+    .commit();
+  return { ok: true };
+}
+
 function normalizeStatus(value: unknown): SetlistStatus {
   if (value === "draft" || value === "ready" || value === "final" || value === "archived") {
     return value;
@@ -149,6 +191,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Lead vocal is required." }, { status: 400 });
   }
 
+  const sync = await syncServiceLeadVocalAssignment(client, serviceId, leadVocal);
+  if ("error" in sync) {
+    return NextResponse.json({ error: sync.error }, { status: 400 });
+  }
+
   const doc = {
     _type: "setlist" as const,
     service: { _type: "reference" as const, _ref: serviceId },
@@ -174,11 +221,11 @@ export async function PATCH(req: Request) {
   }
 
   const client = getSanityWriteClient();
-  const existing = await client.fetch<{ _id: string } | null>(
-    `*[_type == "setlist" && _id == $id][0]{ _id }`,
+  const existingSetlist = await client.fetch<{ _id: string; serviceRef: string | null } | null>(
+    `*[_type == "setlist" && _id == $id][0]{ _id, "serviceRef": service._ref }`,
     { id: setlistId }
   );
-  if (!existing?._id) {
+  if (!existingSetlist?._id) {
     return NextResponse.json({ error: "Setlist not found." }, { status: 404 });
   }
 
@@ -214,6 +261,18 @@ export async function PATCH(req: Request) {
     const leadVocal = normalizeString(body.leadVocal);
     if (!leadVocal) {
       return NextResponse.json({ error: "Lead vocal cannot be empty." }, { status: 400 });
+    }
+    const targetServiceId =
+      body.serviceId !== undefined ? normalizeString(body.serviceId) : existingSetlist.serviceRef;
+    if (!targetServiceId) {
+      return NextResponse.json(
+        { error: "Cannot sync lead vocal: setlist has no linked service." },
+        { status: 400 }
+      );
+    }
+    const sync = await syncServiceLeadVocalAssignment(client, targetServiceId, leadVocal);
+    if ("error" in sync) {
+      return NextResponse.json({ error: sync.error }, { status: 400 });
     }
     patch.set({ leadVocal });
     touched = true;

@@ -3,7 +3,13 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import type { Setlist, SetlistStatus, ServicePickerOption, Song } from "@/src/lib/sanity/client";
+import type {
+  LeadVocalMusicianOption,
+  Setlist,
+  SetlistStatus,
+  ServicePickerOption,
+  Song,
+} from "@/src/lib/sanity/client";
 import { formatIsoDateToDDMMYYYY } from "@/src/lib/formatDate";
 
 type AdminSetlistsManagerProps = {
@@ -11,6 +17,7 @@ type AdminSetlistsManagerProps = {
   initialSetlists: Setlist[];
   songs: Song[];
   services: ServicePickerOption[];
+  leadVocalMusicians: LeadVocalMusicianOption[];
   embedded?: boolean;
 };
 
@@ -83,6 +90,7 @@ export default function AdminSetlistsManager({
   initialSetlists,
   songs,
   services,
+  leadVocalMusicians,
   embedded = false,
 }: AdminSetlistsManagerProps) {
   void authorized;
@@ -118,6 +126,15 @@ export default function AdminSetlistsManager({
     }
     return map;
   }, [sortedSongs]);
+
+  const leadVocalSelectOptions = useMemo(() => {
+    const names = new Set(leadVocalMusicians.map((m) => m.name));
+    const out: LeadVocalMusicianOption[] = [...leadVocalMusicians];
+    if (leadVocal && !names.has(leadVocal)) {
+      out.unshift({ _id: "__current-service", name: leadVocal });
+    }
+    return out;
+  }, [leadVocalMusicians, leadVocal]);
 
   const refreshSetlists = useCallback(async () => {
     const res = await fetch("/api/admin/setlists", { credentials: "include" });
@@ -733,17 +750,27 @@ export default function AdminSetlistsManager({
 
               <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-200">
                 Lead vocal
-                <input
-                  type="text"
+                <select
                   value={leadVocal}
                   onChange={(e) => {
                     setLeadVocal(e.target.value);
                     setLeadVocalDirty(true);
                   }}
                   className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm"
-                  placeholder="e.g. Jane Doe"
                   required
-                />
+                >
+                  <option value="">Choose lead vocal…</option>
+                  {leadVocalSelectOptions.map((m) => (
+                    <option key={m._id} value={m.name}>
+                      {m.name}
+                      {m._id === "__current-service" ? " (from service)" : ""}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                  Pulled from the selected service by default. Saving creates or updates the setlist and
+                  writes this lead vocal to the linked calendar service.
+                </p>
               </label>
 
               <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-200">

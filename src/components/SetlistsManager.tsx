@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Setlist, ServicePickerOption, Song } from "@/src/lib/sanity/client";
+import type { LeadVocalMusicianOption, Setlist, ServicePickerOption, Song } from "@/src/lib/sanity/client";
 import AdminSetlistsManager from "@/src/components/AdminSetlistsManager";
 import SetlistRepository from "@/src/components/SetlistRepository";
 
@@ -9,6 +9,7 @@ type SetlistsManagerProps = {
   setlists: Setlist[];
   songs: Song[];
   services: ServicePickerOption[];
+  leadVocalMusicians: LeadVocalMusicianOption[];
   authorized: boolean;
 };
 
@@ -18,6 +19,7 @@ export default function SetlistsManager({
   setlists: initialSetlists,
   songs,
   services,
+  leadVocalMusicians,
   authorized,
 }: SetlistsManagerProps) {
   const [activeTab, setActiveTab] = useState<SetlistsTab>("repository");
@@ -80,6 +82,7 @@ export default function SetlistsManager({
           initialSetlists={setlists}
           songs={songs}
           services={services}
+          leadVocalMusicians={leadVocalMusicians}
           embedded
         />
       )}

@@ -759,6 +759,42 @@ export type ServicePickerOption = {
   leadVocalNames: string[];
 };
 
+export type LeadVocalMusicianOption = {
+  _id: string;
+  name: string;
+};
+
+/** Musicians with the Lead Vocal role (setlist lead vocal picker). */
+export async function fetchLeadVocalMusicians(): Promise<LeadVocalMusicianOption[]> {
+  const query = `*[_type == "musician" && "Lead Vocal" in roles] | order(name asc) {
+    _id,
+    name
+  }`;
+
+  const client = getSanityClient();
+  const raw = await client.fetch<
+    Array<{
+      _id?: string | null;
+      name?: string | null;
+    }>
+  >(query);
+
+  const normalizeString = (value: unknown): string | null => {
+    if (typeof value !== "string") return null;
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  };
+
+  return raw
+    .map((row) => {
+      const _id = normalizeString(row._id);
+      const name = normalizeString(row.name);
+      if (!_id || !name) return null;
+      return { _id, name } satisfies LeadVocalMusicianOption;
+    })
+    .filter((row): row is LeadVocalMusicianOption => Boolean(row));
+}
+
 /** Recent services for linking setlists (admin UI). */
 export async function fetchServicesForSetlistPicker(): Promise<ServicePickerOption[]> {
   const query = `*[_type == "service"] | order(date desc) [0...120] {

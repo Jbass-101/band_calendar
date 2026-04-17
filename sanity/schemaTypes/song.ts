@@ -140,6 +140,8 @@ export const song = defineType({
       type: "url",
       validation: (rule) =>
         rule
+          .required()
+          .error("YouTube URL is required.")
           .uri({ allowRelative: false, scheme: ["http", "https"] })
           .custom((value) => {
             if (typeof value !== "string" || value.trim().length === 0) return true;

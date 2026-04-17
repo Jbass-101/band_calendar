@@ -70,10 +70,10 @@ function validateSongBody(body: CreateSongBody) {
   }
 
   const youtubeUrl = normalizeUrl(body.youtubeUrl);
-  if (body.youtubeUrl != null && body.youtubeUrl !== "" && !youtubeUrl) {
-    return { error: "YouTube URL is invalid." };
+  if (!youtubeUrl) {
+    return { error: "YouTube URL is required." };
   }
-  if (youtubeUrl && !isAllowedHost(youtubeUrl, ["youtube.com", "youtu.be"])) {
+  if (!isAllowedHost(youtubeUrl, ["youtube.com", "youtu.be"])) {
     return { error: "Use a valid YouTube URL (youtube.com or youtu.be)." };
   }
 
@@ -157,7 +157,7 @@ export async function POST(req: Request) {
     number,
     name: validated.name,
     genre: validated.genre,
-    youtubeUrl: validated.youtubeUrl ?? undefined,
+    youtubeUrl: validated.youtubeUrl,
     spotifyUrl: validated.spotifyUrl ?? undefined,
     defaultKey: validated.defaultKey ?? undefined,
     ...(validated.tempoBpm === undefined
@@ -245,7 +245,7 @@ export async function PATCH(req: Request) {
     patch.set({
       name: validated.name,
       genre: validated.genre,
-      youtubeUrl: validated.youtubeUrl ?? undefined,
+      youtubeUrl: validated.youtubeUrl,
       spotifyUrl: validated.spotifyUrl ?? undefined,
       defaultKey: validated.defaultKey ?? undefined,
       ...(validated.tempoBpm === undefined ? {} : { tempoBpm: validated.tempoBpm }),

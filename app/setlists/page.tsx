@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import SetlistsManager from "@/src/components/SetlistsManager";
 import { BRANDING } from "@/src/lib/branding";
 import {
+  fetchLeadVocalMusicians,
   fetchServicesForSetlistPicker,
   fetchSetlists,
   fetchSongs,
@@ -49,10 +50,11 @@ export default async function SetlistsPage() {
   const cookieValue = cookieStore.get(cookieName)?.value;
   const authorized = await isContribSessionValidFromCookie(cookieValue);
 
-  const [setlists, songs, services] = await Promise.all([
+  const [setlists, songs, services, leadVocalMusicians] = await Promise.all([
     fetchSetlists(),
     fetchSongs(),
     fetchServicesForSetlistPicker(),
+    fetchLeadVocalMusicians(),
   ]);
 
   return (
@@ -62,6 +64,7 @@ export default async function SetlistsPage() {
           setlists={setlists}
           songs={songs}
           services={services}
+          leadVocalMusicians={leadVocalMusicians}
           authorized={authorized}
         />
       </main>

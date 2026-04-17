@@ -458,6 +458,7 @@ export default function AdminSongsManager({
                   onChange={(e) => setEditDraft((prev) => ({ ...prev, youtubeUrl: e.target.value }))}
                   className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm"
                   placeholder="https://youtube.com/..."
+                  required
                 />
               </label>
               <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-200">
@@ -613,6 +614,7 @@ export default function AdminSongsManager({
                   onChange={(e) => setCreateDraft((prev) => ({ ...prev, youtubeUrl: e.target.value }))}
                   className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm"
                   placeholder="https://youtube.com/..."
+                  required
                 />
               </label>
               <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-200">
