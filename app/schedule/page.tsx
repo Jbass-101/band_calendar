@@ -36,9 +36,9 @@ export const metadata: Metadata = {
 
 export default function SchedulePage() {
   return (
-    <div className="min-h-screen flex flex-col bg-zinc-100/80 dark:bg-black">
+    <div className="theme-calendar app-shell min-h-screen flex flex-col">
       <main className="w-full max-w-6xl mx-auto px-3 sm:px-4 py-6 sm:py-8 flex-1">
-        <header className="mb-5 sm:mb-7 flex flex-col items-start gap-4 rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white/80 dark:bg-zinc-950/40 px-3 py-3 sm:flex-row sm:items-center sm:gap-5 sm:px-4 sm:py-4 shadow-sm backdrop-blur-sm">
+        <header className="section-panel mb-5 sm:mb-7 flex flex-col items-start gap-4 rounded-2xl border px-3 py-3 sm:flex-row sm:items-center sm:gap-5 sm:px-4 sm:py-4 shadow-sm backdrop-blur-sm">
           <div className="shrink-0 self-center sm:self-auto">
             <Image
               src={BRANDING.band.logoSrc}
@@ -51,7 +51,7 @@ export default function SchedulePage() {
           </div>
 
           <div className="min-w-0 w-full flex-1 flex flex-col sm:justify-center">
-            <h1 className="text-center sm:text-left text-2xl sm:text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
+            <h1 className="section-accent-text text-center sm:text-left text-2xl sm:text-3xl font-semibold tracking-tight">
               {BRANDING.band.title}
             </h1>
             <p className="mt-1 text-center sm:text-left text-sm sm:text-base text-zinc-600 dark:text-zinc-300">
@@ -67,7 +67,7 @@ export default function SchedulePage() {
         Powered by{" "}
         <a
           href="https://extrabrains.co.za/"
-          className="font-semibold text-emerald-600 dark:text-emerald-400 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/70 rounded-sm"
+          className="app-footer-link font-semibold hover:underline rounded-sm"
         >
           Extra Brains
         </a>

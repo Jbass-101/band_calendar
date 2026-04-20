@@ -142,10 +142,10 @@ function shortDeviceId(id: string): string {
 }
 
 function statementStatusBadgeClass(status: DashboardStatus): string {
-  if (status === "paid") return "bg-emerald-100 text-emerald-700";
-  if (status === "overpaid") return "bg-sky-100 text-sky-700";
-  if (status === "partial") return "bg-amber-100 text-amber-700";
-  return "bg-rose-100 text-rose-700";
+  if (status === "paid") return "bg-[color:var(--color-success-soft)] text-[color:var(--color-success-strong)]";
+  if (status === "overpaid") return "bg-[color:var(--color-info-soft)] text-[color:var(--color-info-strong)]";
+  if (status === "partial") return "bg-[color:var(--color-warning-soft)] text-[color:var(--color-warning-strong)]";
+  return "bg-[color:var(--color-error-soft)] text-[color:var(--color-error-strong)]";
 }
 
 function ContributionsStatementExport({ report }: { report: ReportPayload }) {
@@ -195,7 +195,7 @@ function ContributionsStatementExport({ report }: { report: ReportPayload }) {
         </div>
         <div>
           <p className="text-xs text-zinc-500">Net after expenses</p>
-          <p className="text-base font-semibold text-emerald-800">R{money(s.netAfterExpenses)}</p>
+          <p className="text-base font-semibold text-[color:var(--section-strong)]">R{money(s.netAfterExpenses)}</p>
         </div>
       </div>
 
@@ -694,10 +694,10 @@ export default function ContributionsManager({ authorized }: { authorized: boole
   }, [dashboardRows]);
 
   function statusBadgeClass(status: DashboardStatus): string {
-    if (status === "paid") return "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300";
-    if (status === "overpaid") return "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300";
-    if (status === "partial") return "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300";
-    return "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300";
+    if (status === "paid") return "bg-[color:var(--color-success-soft)] text-[color:var(--color-success-strong)]";
+    if (status === "overpaid") return "bg-[color:var(--color-info-soft)] text-[color:var(--color-info-strong)]";
+    if (status === "partial") return "bg-[color:var(--color-warning-soft)] text-[color:var(--color-warning-strong)]";
+    return "bg-[color:var(--color-error-soft)] text-[color:var(--color-error-strong)]";
   }
 
   function contributionReminderMessage(row: DashboardRow): string | null {
@@ -1517,7 +1517,7 @@ export default function ContributionsManager({ authorized }: { authorized: boole
                 <button
                   type="submit"
                   disabled={saving}
-                  className="rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 text-sm font-medium disabled:opacity-70"
+                  className="section-accent-button rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-70"
                 >
                   {saving
                     ? "Saving..."
@@ -1764,7 +1764,7 @@ export default function ContributionsManager({ authorized }: { authorized: boole
                 <button
                   type="submit"
                   disabled={expenseSaving}
-                  className="rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 text-sm font-medium disabled:opacity-70"
+                  className="section-accent-button rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-70"
                 >
                   {expenseSaving
                     ? "Saving..."

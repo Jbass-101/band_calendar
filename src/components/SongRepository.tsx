@@ -106,10 +106,10 @@ export default function SongRepository({ songs, embedded = false }: SongReposito
 
   return (
     <section className="space-y-4">
-      <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white/90 dark:bg-zinc-950/70 p-4 sm:p-5">
+      <div className="section-panel rounded-xl border p-4 sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-lg sm:text-xl font-semibold text-zinc-900 dark:text-zinc-100">
+            <h1 className="section-accent-text text-lg sm:text-xl font-semibold">
               {embedded ? "Repository" : "Song Repository"}
             </h1>
             <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
@@ -190,7 +190,7 @@ export default function SongRepository({ songs, embedded = false }: SongReposito
         </div>
       </div>
 
-      <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white/90 dark:bg-zinc-950/70 p-4 sm:p-5">
+      <div className="section-panel rounded-xl border p-4 sm:p-5">
         {sortedSongs.length === 0 ? (
           <p className="text-sm text-zinc-500 dark:text-zinc-400">No songs match your search.</p>
         ) : (
@@ -215,7 +215,7 @@ export default function SongRepository({ songs, embedded = false }: SongReposito
                       className={[
                         "inline-flex rounded-full px-2 py-0.5 text-xs font-medium",
                         song.active
-                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                          ? "section-accent-chip"
                           : "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
                       ].join(" ")}
                     >
@@ -242,7 +242,7 @@ export default function SongRepository({ songs, embedded = false }: SongReposito
                         href={song.spotifyUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline"
+                        className="section-accent-text text-xs hover:underline"
                       >
                         Spotify
                       </a>
@@ -251,7 +251,7 @@ export default function SongRepository({ songs, embedded = false }: SongReposito
                       type="button"
                       onClick={() => setLyricsSong(song)}
                       disabled={!hasLyrics}
-                      className="text-xs text-sky-600 dark:text-sky-400 hover:underline disabled:opacity-50 disabled:no-underline"
+                      className="text-xs text-[color:var(--color-info-default)] dark:text-[color:var(--color-info-strong)] hover:underline disabled:opacity-50 disabled:no-underline"
                     >
                       View Lyrics
                     </button>
@@ -312,7 +312,7 @@ export default function SongRepository({ songs, embedded = false }: SongReposito
                               href={song.spotifyUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline"
+                              className="section-accent-text text-xs hover:underline"
                             >
                               Spotify
                             </a>
@@ -327,7 +327,7 @@ export default function SongRepository({ songs, embedded = false }: SongReposito
                           className={[
                             "inline-flex rounded-full px-2 py-0.5 text-xs font-medium",
                             song.active
-                              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                              ? "section-accent-chip"
                               : "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
                           ].join(" ")}
                         >
@@ -339,7 +339,7 @@ export default function SongRepository({ songs, embedded = false }: SongReposito
                           type="button"
                           onClick={() => setLyricsSong(song)}
                           disabled={!hasLyrics}
-                          className="text-xs text-sky-600 dark:text-sky-400 hover:underline disabled:opacity-50 disabled:no-underline"
+                          className="text-xs text-[color:var(--color-info-default)] dark:text-[color:var(--color-info-strong)] hover:underline disabled:opacity-50 disabled:no-underline"
                         >
                           View Lyrics
                         </button>

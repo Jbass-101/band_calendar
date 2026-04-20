@@ -26,15 +26,15 @@ function statusLabel(status: Setlist["status"]) {
 
 function statusBadgeClass(status: Setlist["status"]) {
   if (status === "final") {
-    return "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300";
+    return "bg-[color:var(--color-success-soft)] text-[color:var(--color-success-strong)]";
   }
   if (status === "ready") {
-    return "bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300";
+    return "bg-[color:var(--color-info-soft)] text-[color:var(--color-info-strong)]";
   }
   if (status === "archived") {
     return "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300";
   }
-  return "bg-amber-100 text-amber-900 dark:bg-amber-900/25 dark:text-amber-200";
+  return "bg-[color:var(--color-warning-soft)] text-[color:var(--color-warning-strong)]";
 }
 
 function formatKey(item: SetlistSongItem): string {
@@ -143,10 +143,10 @@ export default function SetlistRepository({ setlists, embedded = false }: Setlis
 
   return (
     <section className="space-y-4">
-      <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white/90 dark:bg-zinc-950/70 p-4 sm:p-5">
+      <div className="section-panel rounded-xl border p-4 sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-lg sm:text-xl font-semibold text-zinc-900 dark:text-zinc-100">
+            <h1 className="section-accent-text text-lg sm:text-xl font-semibold">
               {embedded ? "Repository" : "Setlists"}
             </h1>
             <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
@@ -174,7 +174,7 @@ export default function SetlistRepository({ setlists, embedded = false }: Setlis
         </label>
       </div>
 
-      <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white/90 dark:bg-zinc-950/70 p-4 sm:p-5">
+      <div className="section-panel rounded-xl border p-4 sm:p-5">
         {sortedSetlists.length === 0 ? (
           <p className="text-sm text-zinc-500 dark:text-zinc-400">No setlists found.</p>
         ) : (
@@ -212,7 +212,7 @@ export default function SetlistRepository({ setlists, embedded = false }: Setlis
                     <div className="mt-2 flex flex-wrap gap-2">
                       <Link
                         href={`/setlists/${setlist._id}/export/band`}
-                        className="text-xs font-medium text-emerald-700 dark:text-emerald-400 hover:underline"
+                        className="section-accent-text text-xs font-medium hover:underline"
                       >
                         Export band sheet
                       </Link>
@@ -221,7 +221,7 @@ export default function SetlistRepository({ setlists, embedded = false }: Setlis
                       </span>
                       <Link
                         href={`/setlists/${setlist._id}/export/media`}
-                        className="text-xs font-medium text-emerald-700 dark:text-emerald-400 hover:underline"
+                        className="section-accent-text text-xs font-medium hover:underline"
                       >
                         Export media / lyrics
                       </Link>
@@ -242,7 +242,7 @@ export default function SetlistRepository({ setlists, embedded = false }: Setlis
                     <button
                       type="button"
                       onClick={() => toggleSetlistExpanded(setlist._id)}
-                      className="text-xs font-medium text-emerald-700 dark:text-emerald-400 hover:underline"
+                      className="section-accent-text text-xs font-medium hover:underline"
                     >
                       {expandedSetlists.has(setlist._id) ? "Hide songs" : `Show songs (${setlist.songs.length})`}
                     </button>

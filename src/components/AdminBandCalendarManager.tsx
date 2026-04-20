@@ -419,8 +419,8 @@ export default function AdminBandCalendarManager({ authorized }: AdminBandCalend
 
   return (
     <section className="space-y-4">
-      <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white/90 dark:bg-zinc-950/70 p-4 sm:p-5">
-        <h1 className="text-lg sm:text-xl font-semibold text-zinc-900 dark:text-zinc-100">
+      <div className="section-panel rounded-xl border p-4 sm:p-5">
+        <h1 className="section-accent-text text-lg sm:text-xl font-semibold">
           Admin Band Calendar
         </h1>
         <p className="text-sm text-zinc-600 dark:text-zinc-400">
@@ -429,7 +429,7 @@ export default function AdminBandCalendarManager({ authorized }: AdminBandCalend
       </div>
 
       {statusMessage ? (
-        <div className="rounded-lg border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50 dark:bg-emerald-950/30 px-3 py-2 text-sm text-emerald-800 dark:text-emerald-200">
+        <div className="rounded-lg border border-[color:var(--section-default)] bg-[color:var(--section-soft)] px-3 py-2 text-sm text-[color:var(--section-strong)]">
           {statusMessage}
         </div>
       ) : null}
@@ -455,8 +455,8 @@ export default function AdminBandCalendarManager({ authorized }: AdminBandCalend
                 className={[
                   "rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors",
                   active
-                    ? "border-emerald-400/70 dark:border-emerald-500/60 bg-emerald-50/70 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-200"
-                    : "border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/50 text-zinc-700 dark:text-zinc-200 hover:border-emerald-300/60",
+                    ? "border-[color:var(--section-default)] bg-[color:var(--section-soft)] text-[color:var(--section-strong)]"
+                    : "border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/50 text-zinc-700 dark:text-zinc-200 hover:border-[color:var(--section-default)]",
                 ].join(" ")}
               >
                 {tab.label}
@@ -473,7 +473,7 @@ export default function AdminBandCalendarManager({ authorized }: AdminBandCalend
             <button
               type="button"
               onClick={() => setCreateServiceModalOpen(true)}
-              className="rounded-md bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 text-xs font-medium"
+              className="section-accent-button rounded-md px-3 py-1.5 text-xs font-medium"
             >
               Create service
             </button>
@@ -613,7 +613,7 @@ export default function AdminBandCalendarManager({ authorized }: AdminBandCalend
             <button
               type="button"
               onClick={() => setCreateRehearsalModalOpen(true)}
-              className="rounded-md bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 text-xs font-medium"
+              className="section-accent-button rounded-md px-3 py-1.5 text-xs font-medium"
             >
               Create rehearsal
             </button>
@@ -767,7 +767,7 @@ export default function AdminBandCalendarManager({ authorized }: AdminBandCalend
                 <button
                   type="submit"
                   disabled={createServiceBusy}
-                  className="rounded-md bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-1.5 text-sm font-medium disabled:opacity-60"
+                  className="section-accent-button rounded-md px-4 py-1.5 text-sm font-medium disabled:opacity-60"
                 >
                   {createServiceBusy ? "Saving..." : "Create service"}
                 </button>
@@ -824,7 +824,7 @@ export default function AdminBandCalendarManager({ authorized }: AdminBandCalend
                       setErrorMessage(e instanceof Error ? e.message : "Failed to update service.")
                     )
                   }
-                  className="rounded-md bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-1.5 text-sm font-medium"
+                  className="section-accent-button rounded-md px-4 py-1.5 text-sm font-medium"
                 >
                   Save changes
                 </button>
@@ -891,7 +891,7 @@ export default function AdminBandCalendarManager({ authorized }: AdminBandCalend
                 <button
                   type="submit"
                   disabled={createRehearsalBusy}
-                  className="rounded-md bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-1.5 text-sm font-medium disabled:opacity-60"
+                  className="section-accent-button rounded-md px-4 py-1.5 text-sm font-medium disabled:opacity-60"
                 >
                   {createRehearsalBusy ? "Saving..." : "Create rehearsal"}
                 </button>
@@ -961,7 +961,7 @@ export default function AdminBandCalendarManager({ authorized }: AdminBandCalend
                       setErrorMessage(e instanceof Error ? e.message : "Failed to update rehearsal.")
                     )
                   }
-                  className="rounded-md bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-1.5 text-sm font-medium"
+                  className="section-accent-button rounded-md px-4 py-1.5 text-sm font-medium"
                 >
                   Save changes
                 </button>

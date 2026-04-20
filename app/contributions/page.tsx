@@ -53,7 +53,7 @@ export default async function ContributionsPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-zinc-100/80 dark:bg-black">
+    <div className="theme-contributions app-shell min-h-screen flex flex-col">
       <main className="w-full max-w-6xl mx-auto px-3 sm:px-4 py-6 sm:py-8 flex-1">
         <ContributionsManager authorized={authorized} />
       </main>
@@ -61,7 +61,7 @@ export default async function ContributionsPage() {
         Powered by{" "}
         <a
           href="https://extrabrains.co.za/"
-          className="font-semibold text-emerald-600 dark:text-emerald-400 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/70 rounded-sm"
+          className="app-footer-link font-semibold hover:underline rounded-sm"
         >
           Extra Brains
         </a>
